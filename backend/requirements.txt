@@ -1,0 +1,17 @@
+python-jose[cryptography]  
+sqlmodel  
+psycopg2-binary  
+typer  
+email-validator  
+fastapi[standard]
+uvicorn  
+exceptiongroup  
+python-dotenv  
+pydantic_core  
+passlib[bcrypt]  
+jinja2  
+dynaconf  
+typing_extensions  
+requests  
+pydantic  
+python-multipart  
