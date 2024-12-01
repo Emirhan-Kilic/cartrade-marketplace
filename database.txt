@@ -1,0 +1,220 @@
+CREATE TABLE user (
+                      user_ID INT PRIMARY KEY AUTO_INCREMENT,
+                      first_name VARCHAR(50) NOT NULL,
+                      last_name VARCHAR(50) NOT NULL,
+                      email VARCHAR(150) UNIQUE NOT NULL,
+                      password VARCHAR(64) NOT NULL,
+                      phone_number VARCHAR(15) UNIQUE,
+                      address VARCHAR(200),
+                      rating DECIMAL(3,2) DEFAULT 0.0 CHECK (rating BETWEEN 0.0 AND 5.0),
+                      join_date DATE DEFAULT (CURRENT_DATE),
+                      profile_picture MEDIUMBLOB,
+                      balance DECIMAL(10,2) DEFAULT 0.0
+);
+
+CREATE TABLE vehicles (
+                          vehicle_ID INT PRIMARY KEY AUTO_INCREMENT,
+                          manufacturer VARCHAR(50) NOT NULL,
+                          model VARCHAR(50) NOT NULL,
+                          year INT CHECK (year BETWEEN 1886 AND 9999), -- Static limit; no runtime functions in CHECK
+                          price DECIMAL(10,2) CHECK (price >= 0),
+                          mileage INT CHECK (mileage >= 0),
+                          `condition` ENUM('new', 'used', 'certified pre-owned') NOT NULL, -- Backticks to escape reserved keyword
+                          city VARCHAR(50),
+                          state VARCHAR(50),
+                          description TEXT,
+                          listing_date DATE DEFAULT (CURRENT_DATE)
+);
+
+
+
+
+CREATE TABLE vehicle_photos (
+                                photo_ID INT PRIMARY KEY AUTO_INCREMENT,
+                                vehicle_ID INT NOT NULL,
+                                photo_url TEXT NOT NULL,
+                                FOREIGN KEY (vehicle_ID) REFERENCES vehicles(vehicle_ID)
+                                    ON DELETE CASCADE
+                                    ON UPDATE CASCADE
+);
+
+
+CREATE TABLE car (
+                     vehicle_ID INT PRIMARY KEY,
+                     number_of_doors INT CHECK (number_of_doors > 0),
+                     seating_capacity INT CHECK (seating_capacity > 0),
+                     transmission ENUM('manual', 'automatic', 'semi-automatic', 'CVT') NOT NULL,
+                     FOREIGN KEY (vehicle_ID) REFERENCES vehicles(vehicle_ID)
+                         ON DELETE CASCADE
+                         ON UPDATE CASCADE
+);
+
+
+
+CREATE TABLE motorcycle (
+                            vehicle_ID INT PRIMARY KEY,
+                            engine_capacity DECIMAL(5,2) CHECK (engine_capacity > 0),
+                            bike_type ENUM('Cruiser', 'Sport', 'Touring', 'Naked', 'Adventure') NOT NULL,
+                            FOREIGN KEY (vehicle_ID) REFERENCES vehicles(vehicle_ID)
+                                ON DELETE CASCADE
+                                ON UPDATE CASCADE
+);
+
+
+CREATE TABLE truck (
+                       vehicle_ID INT PRIMARY KEY,
+                       cargo_capacity DECIMAL(10,2) CHECK (cargo_capacity > 0),
+                       has_towing_package BOOLEAN DEFAULT FALSE,
+                       FOREIGN KEY (vehicle_ID) REFERENCES vehicles(vehicle_ID)
+                           ON DELETE CASCADE
+                           ON UPDATE CASCADE
+);
+
+CREATE TABLE admin (
+                       user_id INT PRIMARY KEY,
+                       FOREIGN KEY (user_id) REFERENCES user(user_id)
+                           ON DELETE CASCADE
+                           ON UPDATE CASCADE
+);
+
+CREATE TABLE inspector (
+                           user_id INT PRIMARY KEY,  -- Assuming user_id in the user table is INT
+                           number_of_inspections INT DEFAULT 0,
+                           number_of_certificates INT DEFAULT 0,
+                           FOREIGN KEY (user_id) REFERENCES user(user_id)
+                               ON DELETE CASCADE
+                               ON UPDATE CASCADE
+);
+
+
+CREATE TABLE owner_seller (
+                              user_id INT PRIMARY KEY,  -- Assuming user_id in the user table is INT
+                              number_of_ads INT DEFAULT 0,
+                              number_of_done_deals INT DEFAULT 0,
+                              FOREIGN KEY (user_id) REFERENCES user(user_id)
+                                  ON DELETE CASCADE
+                                  ON UPDATE CASCADE
+);
+
+
+
+
+CREATE TABLE ads (
+                     ad_ID INT PRIMARY KEY AUTO_INCREMENT,
+                     post_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                     expiry_date TIMESTAMP NOT NULL,
+                     is_premium BOOLEAN DEFAULT FALSE NOT NULL,
+                     views INT DEFAULT 0 CHECK(views >= 0),
+                     status ENUM('Active', 'Inactive', 'Expired', 'Sold') DEFAULT 'Active' NOT NULL,
+                     owner INT,
+                     associated_vehicle INT NOT NULL UNIQUE,
+                     FOREIGN KEY (owner) REFERENCES `owner_seller`(user_ID) ON DELETE SET NULL ON UPDATE CASCADE,
+                     FOREIGN KEY (associated_vehicle) REFERENCES vehicles(vehicle_ID) ON DELETE CASCADE ON UPDATE CASCADE,
+                     CHECK (expiry_date > post_date)
+);
+
+
+CREATE TABLE offer (
+                       offer_ID INT PRIMARY KEY AUTO_INCREMENT,
+                       offer_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                       offer_price DECIMAL(10, 2) CHECK (offer_price >= 0),
+                       offer_status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
+                       counter_offer_price DECIMAL(10, 2) CHECK (counter_offer_price >= 0),
+                       offer_owner INT NOT NULL,
+                       sent_to INT NOT NULL,
+                       FOREIGN KEY (offer_owner) REFERENCES user(user_ID) ON DELETE CASCADE,
+                       FOREIGN KEY (sent_to) REFERENCES ads(ad_ID) ON DELETE CASCADE
+);
+
+
+
+CREATE TABLE reviews (
+                         review_ID INT PRIMARY KEY AUTO_INCREMENT,
+                         rating TINYINT CHECK (rating BETWEEN 0 AND 5) NOT NULL,
+                         comment TEXT,
+                         review_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                         reviewer INT NOT NULL,
+                         evaluated_user INT NOT NULL,
+                         FOREIGN KEY (reviewer) REFERENCES user(user_ID) ON DELETE CASCADE,
+                         FOREIGN KEY (evaluated_user) REFERENCES user(user_ID) ON DELETE CASCADE
+);
+
+
+
+
+CREATE TABLE transactions (
+                              transaction_ID INT PRIMARY KEY AUTO_INCREMENT,
+                              transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                              price DECIMAL(10, 2) CHECK (price > 0) NOT NULL,
+                              payment_method ENUM('credit_card', 'paypal', 'bank_transfer', 'crypto') NOT NULL,
+                              payment_status ENUM('completed', 'pending', 'failed') DEFAULT 'pending' NOT NULL,
+                              transaction_type ENUM('purchase', 'refund', 'deposit', 'withdrawal') NOT NULL,
+                              review INT,  -- Allow NULL values for review
+                              belonged_ad INT,  -- Allow NULL values for belonged_ad
+                              paid_by INT,  -- Allow NULL values for paid_by
+                              approved_by INT,  -- Allow NULL values for approved_by
+                              FOREIGN KEY (review) REFERENCES reviews(review_ID) ON DELETE SET NULL ON UPDATE CASCADE,
+                              FOREIGN KEY (belonged_ad) REFERENCES ads(ad_ID) ON DELETE SET NULL ON UPDATE CASCADE,
+                              FOREIGN KEY (paid_by) REFERENCES `owner_seller`(user_ID) ON DELETE SET NULL ON UPDATE CASCADE,
+                              FOREIGN KEY (approved_by) REFERENCES admin(user_ID) ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+
+CREATE TABLE auctions (
+                          auction_ID INT PRIMARY KEY AUTO_INCREMENT,
+                          starting_price DECIMAL(10, 2) CHECK (starting_price >= 0) NOT NULL,
+                          current_highest_bid DECIMAL(10, 2) CHECK (current_highest_bid >= 0) NOT NULL,
+                          end_date TIMESTAMP NOT NULL,
+                          status ENUM('Open', 'Closed', 'Cancelled', 'Sold') DEFAULT 'Open' NOT NULL,
+                          belonged_ad INT NOT NULL,
+                          FOREIGN KEY (belonged_ad) REFERENCES ads(ad_ID) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE wishlist (
+                          wishlist_ID INT AUTO_INCREMENT,
+                          user_ID INT NOT NULL,
+                          bookmarked_ad INT NOT NULL,
+                          date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                          PRIMARY KEY (wishlist_ID, user_ID),  -- Corrected PRIMARY KEY syntax
+                          FOREIGN KEY (user_ID) REFERENCES user(user_ID) ON DELETE CASCADE ON UPDATE CASCADE,
+                          FOREIGN KEY (bookmarked_ad) REFERENCES ads(ad_ID) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+
+CREATE TABLE certification (
+                               certification_ID INT PRIMARY KEY AUTO_INCREMENT,
+                               certification_date DATE NOT NULL,
+                               expiry_date DATE NOT NULL,
+                               CHECK (expiry_date > certification_date)
+);
+
+
+
+
+
+CREATE TABLE inspections (
+                             inspection_ID INT NOT NULL,
+                             vehicle_ID INT NOT NULL,
+                             inspection_date DATE NOT NULL,
+                             report TEXT NOT NULL,
+                             result ENUM('Passed', 'Failed', 'Pending') DEFAULT 'Pending' NOT NULL,
+                             related_certification INT UNIQUE,
+                             done_by INT NOT NULL,
+                             PRIMARY KEY (inspection_ID, vehicle_ID),  -- Corrected PRIMARY KEY syntax
+                             FOREIGN KEY (vehicle_ID) REFERENCES vehicles(vehicle_ID) ON DELETE CASCADE ON UPDATE CASCADE,
+                             FOREIGN KEY (related_certification) REFERENCES certification(certification_ID) ON DELETE SET NULL ON UPDATE CASCADE,
+                             FOREIGN KEY (done_by) REFERENCES inspector(user_ID) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE bids (
+                      auction_ID INT NOT NULL,
+                      bid_ID INT NOT NULL AUTO_INCREMENT,
+                      bid_amount DECIMAL(10, 2) CHECK (bid_amount >= 0) NOT NULL,
+                      bid_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                      bidder INT NOT NULL,
+                      PRIMARY KEY (bid_ID),  -- `bid_ID` as the only primary key
+                      FOREIGN KEY (auction_ID) REFERENCES auctions(auction_ID) ON DELETE CASCADE ON UPDATE CASCADE,
+                      FOREIGN KEY (bidder) REFERENCES owner_seller(user_ID) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+

@@ -42,6 +42,7 @@ if ssl_ca_path and os.getenv('MYSQL_SSL_MODE', 'REQUIRED') == 'REQUIRED':
         'ssl_disabled': False,
     }
 
+
 # Create a function to get the database connection
 def get_db_connection():
     try:
@@ -61,13 +62,14 @@ def get_db_connection():
         print(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
+
 # Sample endpoint to check if backend and DB are working
 @app.get("/dbCheck")
 def db_check():
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute("SELECT COUNT(*) FROM users;")  # Assuming there's a 'users' table
+        cursor.execute("SELECT COUNT(*) FROM user;")  # Assuming there's a 'users' table
         user_count = cursor.fetchone()[0]  # Get the user count
         cursor.close()
         connection.close()
