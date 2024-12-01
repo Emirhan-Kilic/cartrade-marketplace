@@ -8,6 +8,7 @@ services:
       - ./backend/.env
     volumes:
       - ./backend:/app
+      - ./backend/certificates:/app/backend/certificates  # Mount the directory containing ca.pem
     container_name: fastapi-backend
     networks:
       - mynetwork
@@ -22,7 +23,7 @@ services:
     container_name: nextjs-frontend
     networks:
       - mynetwork
-    command: npm run dev  # Change to `npm start` for production build
+    command: npm run dev
     environment:
       - NEXT_PUBLIC_API_URL=http://fastapi-backend:8000
 
