@@ -1,15 +1,20 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import EmailStr
 import os
 import mysql.connector
 from dotenv import load_dotenv
 from typing import List
-import ssl
+from passlib.context import CryptContext
+from api.models import UserCreateRequest
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI()
+
+# Password context for hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Get allowed origins from environment variable
 origins = os.getenv('ALLOWED_ORIGINS', '*').split(',')
@@ -42,6 +47,12 @@ if ssl_ca_path and os.getenv('MYSQL_SSL_MODE', 'REQUIRED') == 'REQUIRED':
         'ssl_disabled': False,
     }
 
+# Check for missing required environment variables
+required_env_vars = ['MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_HOST', 'MYSQL_DATABASE']
+missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+if missing_vars:
+    raise HTTPException(status_code=500, detail=f"Missing environment variables: {', '.join(missing_vars)}")
+
 
 # Create a function to get the database connection
 def get_db_connection():
@@ -56,7 +67,7 @@ def get_db_connection():
         print("Connection successful.")
         return connection
     except mysql.connector.Error as err:
-        print(f"Error: {err}")
+        print(f"Database connection error: {err}")
         raise HTTPException(status_code=500, detail="Database connection failed")
     except Exception as e:
         print(f"Unexpected error: {e}")
@@ -69,13 +80,77 @@ def db_check():
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute("SELECT COUNT(*) FROM user;")  # Assuming there's a 'users' table
+        cursor.execute("SELECT COUNT(*) FROM user;")  # Assuming there's a 'user' table
         user_count = cursor.fetchone()[0]  # Get the user count
         cursor.close()
         connection.close()
         return {"message": "Backend Works Successfully", "Users in Database": user_count}
-    except HTTPException as e:
-        raise e
+    except mysql.connector.Error as e:
+        print(f"Query execution error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error executing database query")
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+# Hashing password before storing
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+# Verify if password matches the hashed one
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+@app.post("/register")
+async def register_user(user: UserCreateRequest):
+    print(user)
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    # Check if email is already in use
+    cursor.execute("SELECT * FROM user WHERE email = %s", (user.email,))
+    existing_user = cursor.fetchone()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Hash the password before storing
+    hashed_password = hash_password(user.password)
+
+    # Insert user data into database
+    cursor.execute(
+        """
+INSERT INTO user (first_name, last_name, email, password, phone_number, address, rating, join_date, profile_picture, balance)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (user.first_name, user.last_name, user.email, hashed_password, user.phone_number, user.address, user.rating,
+         user.join_date, user.profile_picture, user.balance)
+    )
+    connection.commit()
+    cursor.close()
+    connection.close()
+
+    return {"message": "User successfully registered"}
+
+
+@app.post("/login")
+async def login_user(email: EmailStr, password: str):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    # Get user by email
+    cursor.execute("SELECT * FROM user WHERE email = %s", (email,))
+    user = cursor.fetchone()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+
+    # Verify the password
+    if not verify_password(password, user['password']):
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+
+    # On success, return user data (or token for authentication)
+    cursor.close()
+    connection.close()
+
+    return {"message": "Login successful", "user": user}
