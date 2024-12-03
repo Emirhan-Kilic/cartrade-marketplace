@@ -31,6 +31,11 @@ class Admin(UserBase):
     pass
 
 
+class UserLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
 class UserCreateRequest(UserBase):
     pass
 

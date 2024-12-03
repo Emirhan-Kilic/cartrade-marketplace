@@ -1,14 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import EmailStr
 import os
 import mysql.connector
 from dotenv import load_dotenv
-from typing import List
+from api.models import UserCreateRequest, UserLoginRequest
+from fastapi import HTTPException
 from passlib.context import CryptContext
-from api.models import UserCreateRequest
+from fastapi.responses import JSONResponse
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI()
@@ -135,22 +134,29 @@ VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 
 
 @app.post("/login")
-async def login_user(email: EmailStr, password: str):
+async def login(user: UserLoginRequest):
+    print(user)
+    # Connect to the database
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
-    # Get user by email
-    cursor.execute("SELECT * FROM user WHERE email = %s", (email,))
-    user = cursor.fetchone()
-    if not user:
-        raise HTTPException(status_code=400, detail="Invalid email or password")
+    # Check if the user exists by email
+    cursor.execute("SELECT * FROM user WHERE email = %s", (user.email,))
+    existing_user = cursor.fetchone()
+
+    if not existing_user:
+        cursor.close()
+        connection.close()
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
     # Verify the password
-    if not verify_password(password, user['password']):
-        raise HTTPException(status_code=400, detail="Invalid email or password")
+    if not verify_password(user.password, existing_user['password']):
+        cursor.close()
+        connection.close()
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    # On success, return user data (or token for authentication)
     cursor.close()
     connection.close()
 
-    return {"message": "Login successful", "user": user}
+    # Return the id and email on successful login
+    return JSONResponse(content={"id": existing_user['user_ID'], "email": existing_user['email']})
