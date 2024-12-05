@@ -2,6 +2,7 @@
 import {useState} from 'react';
 import Image from 'next/image';
 import vehicleData from './vehicleData'; // Adjust the path if necessary
+import Navbar from '../components/Navbar'
 
 export default function BrowseVehicles() {
     const [vehicles, setVehicles] = useState(vehicleData);
@@ -83,21 +84,8 @@ export default function BrowseVehicles() {
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-200 text-gray-800 font-sans">
             {/* Navbar */}
-            <nav className="bg-white shadow-lg py-4 fixed top-0 left-0 right-0 z-50">
-                <div className="container mx-auto flex justify-between items-center px-6">
-                    <div className="text-3xl font-bold tracking-tight text-blue-600">
-                        <span className="text-yellow-400">Car</span>Trade
-                    </div>
-                    <div className="space-x-6 text-lg font-medium">
-                        <a href="/" className="hover:text-yellow-400">
-                            Home
-                        </a>
-                        <a href="#contact" className="hover:text-yellow-400">
-                            Contact
-                        </a>
-                    </div>
-                </div>
-            </nav>
+            <Navbar/>
+
 
             {/* Filter Menu */}
             <section className="mt-20 bg-white py-6 shadow-md">
@@ -250,106 +238,106 @@ export default function BrowseVehicles() {
             </section>
 
             {/* Vehicle Detail Modal */}
-{isModalOpen && selectedVehicle && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-    <div className="bg-white rounded-lg w-11/12 sm:w-96 p-6 sm:p-8 shadow-xl transform transition-all duration-300 ease-in-out scale-105">
+            {isModalOpen && selectedVehicle && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                    <div
+                        className="bg-white rounded-lg w-11/12 sm:w-96 p-6 sm:p-8 shadow-xl transform transition-all duration-300 ease-in-out scale-105">
 
-      {/* Vehicle Image */}
-      <div className="mb-6">
-        <img
-          src={selectedVehicle.photo}
-          alt={`${selectedVehicle.manufacturer} ${selectedVehicle.model}`}
-          className="w-full h-56 sm:h-72 object-cover rounded-lg shadow-md"
-        />
-      </div>
+                        {/* Vehicle Image */}
+                        <div className="mb-6">
+                            <img
+                                src={selectedVehicle.photo}
+                                alt={`${selectedVehicle.manufacturer} ${selectedVehicle.model}`}
+                                className="w-full h-56 sm:h-72 object-cover rounded-lg shadow-md"
+                            />
+                        </div>
 
-      {/* Vehicle Basic Information */}
-      <div className="space-y-2 mb-4">
-        <h3 className="text-2xl font-semibold text-gray-800">{`${selectedVehicle.manufacturer} ${selectedVehicle.model}`}</h3>
-        <p className="text-xl font-bold text-blue-600">${selectedVehicle.price.toLocaleString()}</p>
+                        {/* Vehicle Basic Information */}
+                        <div className="space-y-2 mb-4">
+                            <h3 className="text-2xl font-semibold text-gray-800">{`${selectedVehicle.manufacturer} ${selectedVehicle.model}`}</h3>
+                            <p className="text-xl font-bold text-blue-600">${selectedVehicle.price.toLocaleString()}</p>
 
-        <p className="text-sm text-gray-600">Year: {selectedVehicle.year}</p>
-        <p className="text-sm text-gray-600">Condition: {selectedVehicle.condition}</p>
-        <p className="text-sm text-gray-600">Mileage: {selectedVehicle.mileage.toLocaleString()} miles</p>
-        <p className="text-sm text-gray-600">Location: {selectedVehicle.city}, {selectedVehicle.state}</p>
-      </div>
+                            <p className="text-sm text-gray-600">Year: {selectedVehicle.year}</p>
+                            <p className="text-sm text-gray-600">Condition: {selectedVehicle.condition}</p>
+                            <p className="text-sm text-gray-600">Mileage: {selectedVehicle.mileage.toLocaleString()} miles</p>
+                            <p className="text-sm text-gray-600">Location: {selectedVehicle.city}, {selectedVehicle.state}</p>
+                        </div>
 
-      {/* Vehicle Specific Info based on Type */}
-      {selectedVehicle.type === 'motorcycle' && (
-        <div className="space-y-2 mb-4">
-          <p className="text-sm text-gray-600">Engine Capacity: {selectedVehicle.engineCapacity} cc</p>
-          <p className="text-sm text-gray-600">Bike Type: {selectedVehicle.bikeType}</p>
-        </div>
-      )}
+                        {/* Vehicle Specific Info based on Type */}
+                        {selectedVehicle.type === 'motorcycle' && (
+                            <div className="space-y-2 mb-4">
+                                <p className="text-sm text-gray-600">Engine
+                                    Capacity: {selectedVehicle.engineCapacity} cc</p>
+                                <p className="text-sm text-gray-600">Bike Type: {selectedVehicle.bikeType}</p>
+                            </div>
+                        )}
 
-      {selectedVehicle.type === 'truck' && (
-        <div className="space-y-2 mb-4">
-          <p className="text-sm text-gray-600">Cargo Capacity: {selectedVehicle.cargoCapacity} lbs</p>
-          {selectedVehicle.hasTowingPackage && (
-            <p className="text-sm text-gray-600">Has Towing Package</p>
-          )}
-        </div>
-      )}
+                        {selectedVehicle.type === 'truck' && (
+                            <div className="space-y-2 mb-4">
+                                <p className="text-sm text-gray-600">Cargo
+                                    Capacity: {selectedVehicle.cargoCapacity} lbs</p>
+                                {selectedVehicle.hasTowingPackage && (
+                                    <p className="text-sm text-gray-600">Has Towing Package</p>
+                                )}
+                            </div>
+                        )}
 
-      {/* Seller Info */}
-      <div className="space-y-4 mt-6 border-t pt-6">
-        <h4 className="text-lg font-semibold text-gray-800">Seller Info</h4>
-        <div className="flex items-center space-x-4">
-          <img
-            src="https://picsum.photos/50" // Mock profile image URL
-            alt="Seller Profile"
-            className="w-12 h-12 object-cover rounded-full shadow-sm"
-          />
-          <div>
-            <p className="text-sm font-medium text-gray-800">John Doe</p>
-            <p className="text-xs text-gray-600">Rating: 4.8/5</p>
-            <p className="text-xs text-gray-600">Email: johndoe@example.com</p>
-            <p className="text-xs text-gray-600">Phone: (123) 456-7890</p>
-          </div>
-        </div>
-      </div>
+                        {/* Seller Info */}
+                        <div className="space-y-4 mt-6 border-t pt-6">
+                            <h4 className="text-lg font-semibold text-gray-800">Seller Info</h4>
+                            <div className="flex items-center space-x-4">
+                                <img
+                                    src="https://picsum.photos/50" // Mock profile image URL
+                                    alt="Seller Profile"
+                                    className="w-12 h-12 object-cover rounded-full shadow-sm"
+                                />
+                                <div>
+                                    <p className="text-sm font-medium text-gray-800">John Doe</p>
+                                    <p className="text-xs text-gray-600">Rating: 4.8/5</p>
+                                    <p className="text-xs text-gray-600">Email: johndoe@example.com</p>
+                                    <p className="text-xs text-gray-600">Phone: (123) 456-7890</p>
+                                </div>
+                            </div>
+                        </div>
 
-      {/* Action Buttons */}
-      <div className="space-y-4 mt-6">
-        {/* Bookmark Button */}
-        <button
-          onClick={handleBookmark}
-          className={`w-full py-2 text-white rounded-lg font-medium transition-all duration-300 ${bookmarked ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
-        >
-          {bookmarked ? 'Remove Bookmark' : 'Bookmark Vehicle'}
-        </button>
+                        {/* Action Buttons */}
+                        <div className="space-y-4 mt-6">
+                            {/* Bookmark Button */}
+                            <button
+                                onClick={handleBookmark}
+                                className={`w-full py-2 text-white rounded-lg font-medium transition-all duration-300 ${bookmarked ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+                            >
+                                {bookmarked ? 'Remove Bookmark' : 'Bookmark Vehicle'}
+                            </button>
 
-        {/* Offer Form */}
-        <form onSubmit={handleOfferSubmit} className="space-y-4">
-          <input
-            type="number"
-            value={offerPrice}
-            onChange={handleOfferChange}
-            placeholder="Enter your offer price"
-            className="w-full p-4 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
-          />
-          <button
-            type="submit"
-            className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-300"
-          >
-            Submit Offer
-          </button>
-        </form>
-      </div>
+                            {/* Offer Form */}
+                            <form onSubmit={handleOfferSubmit} className="space-y-4">
+                                <input
+                                    type="number"
+                                    value={offerPrice}
+                                    onChange={handleOfferChange}
+                                    placeholder="Enter your offer price"
+                                    className="w-full p-4 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+                                />
+                                <button
+                                    type="submit"
+                                    className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-300"
+                                >
+                                    Submit Offer
+                                </button>
+                            </form>
+                        </div>
 
-      {/* Close Button */}
-      <button
-        onClick={closeModal}
-        className="mt-4 w-full py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-all duration-300"
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
-
-
-
+                        {/* Close Button */}
+                        <button
+                            onClick={closeModal}
+                            className="mt-4 w-full py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-all duration-300"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
 
 
             {/* Footer */}

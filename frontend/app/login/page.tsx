@@ -1,16 +1,41 @@
 'use client';
-import {useState} from 'react';
+import {useState, useEffect} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 
 export default function Login() {
-  // State for email, password, and loading state
+  // State for email, password, loading state, and login status message
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
+  const [loggedInMessage, setLoggedInMessage] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const router = useRouter(); // Next.js router to redirect after login
+
+  // Check if a user is already logged in using localStorage
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    const userEmail = localStorage.getItem('userEmail');
+
+    if (userId && userEmail) {
+      // Set message and delay the redirect for user feedback
+      setLoggedInMessage('You are already logged in. Redirecting...');
+      setTimeout(() => {
+        router.push('/browseAds'); // Redirect after message is shown
+      }, 2000); // Delay to show the message for 2 seconds
+    } else {
+      // If user is not logged in, check localStorage for saved email/password
+      const savedEmail = localStorage.getItem('savedEmail');
+      const savedPassword = localStorage.getItem('savedPassword');
+      if (savedEmail) {
+        setEmail(savedEmail);
+      }
+      if (savedPassword) {
+        setPassword(savedPassword);
+      }
+    }
+  }, [router]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,8 +62,18 @@ export default function Login() {
         localStorage.setItem('userId', responseData.id);
         localStorage.setItem('userEmail', responseData.email);
 
-        // If login is successful, redirect to a protected route
-        router.push('/dashboard'); // Or wherever you want to redirect
+        // If rememberMe is checked, save email and password to localStorage
+        if (rememberMe) {
+          localStorage.setItem('savedEmail', email);
+          localStorage.setItem('savedPassword', password);
+        } else {
+          // Clear saved credentials if rememberMe is not checked
+          localStorage.removeItem('savedEmail');
+          localStorage.removeItem('savedPassword');
+        }
+
+        // Redirect to protected route
+        router.push('/browseAds'); // Or wherever you want to redirect
       } else {
         // Handle failed login (e.g., wrong credentials)
         setError('Invalid email or password');
@@ -50,7 +85,6 @@ export default function Login() {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 font-sans">
@@ -64,6 +98,13 @@ export default function Login() {
           <p className="text-lg sm:text-xl mb-6 sm:mb-8 text-center">
             Access your CarTrade marketplace and manage your car listings easily.
           </p>
+
+          {/* Displaying login status message */}
+          {loggedInMessage && (
+            <div className="text-yellow-400 text-lg mb-6 text-center">
+              {loggedInMessage}
+            </div>
+          )}
 
           {/* Login Form */}
           <div className="bg-white text-black p-6 sm:p-8 rounded-xl shadow-lg w-full">
@@ -102,6 +143,8 @@ export default function Login() {
                     type="checkbox"
                     id="remember-me"
                     className="h-4 w-4 rounded text-yellow-400 focus:ring-yellow-400 transition"
+                    checked={rememberMe}
+                    onChange={() => setRememberMe(!rememberMe)} // Toggle rememberMe state
                   />
                   <label htmlFor="remember-me" className="ml-2 text-sm sm:text-base text-gray-600">
                     Remember me

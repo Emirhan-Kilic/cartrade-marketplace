@@ -104,7 +104,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 @app.post("/register")
 async def register_user(user: UserCreateRequest):
-    print(user)
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
@@ -135,7 +134,6 @@ VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 
 @app.post("/login")
 async def login(user: UserLoginRequest):
-    print(user)
     # Connect to the database
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
