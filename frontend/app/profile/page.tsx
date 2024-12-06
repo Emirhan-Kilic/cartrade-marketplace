@@ -1,40 +1,110 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation'; // Importing router for redirection
 import Image from 'next/image';
 import Navbar from '../components/Navbar';
 import { FaAd, FaHandshake, FaHeart, FaStar } from 'react-icons/fa';
 
 export default function ProfilePage() {
+    const router = useRouter(); // Initialize router for navigation
     const [editMode, setEditMode] = useState(false);
-    const [profileData, setProfileData] = useState({
-        name: 'John Doe',
-        email: 'johndoe@example.com',
-        phone: '(123) 456-7890',
-        address: '123 Main St, Springfield, USA',
-        rating: 4.8,
-        balance: '$500.00', // Assuming balance is part of the database columns
-        dateJoined: 'January 1, 2023', // Assuming a dateJoined column exists
+    const [profileData, setProfileData] = useState(null);
+    const [editedProfileData, setEditedProfileData] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        rating: 0,
+        balance: '',
+        dateJoined: '', // Ensure this is added
+        profile_picture: '', // Add this field for picture URL
     });
 
-    const [editedProfileData, setEditedProfileData] = useState(profileData);
+    // Check if the user is logged in
+    useEffect(() => {
+        const userId = localStorage.getItem('userId');
+        
+        if (!userId) {
+            // Redirect to login if user is not logged in
+            router.push('/login');
+            return;
+        }
+
+        const fetchProfileData = async () => {
+            try {
+                console.log('Fetching profile data for userId:', userId); // Debug: show which user ID is being fetched
+                
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/profile/${userId}`);
+                
+                console.log('API response:', response); // Debug: log the full response object
+                
+                if (!response.ok) {
+                    console.error('Failed to fetch profile data: ', response.statusText); // Debug: log if fetch fails
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('Fetched profile data:', data); // Debug: log the fetched data
+                
+                setProfileData({
+                    ...data,
+                    phone: data.phone_number || '', // Changed to phone_number
+                    address: data.address || '',
+                    profile_picture: data.profile_picture || 'https://picsum.photos/400/250', // Use a default image if not set
+                    rating: data.rating || 0, // Handle if rating is missing
+                    balance: data.balance || 0, // Handle if balance is missing
+                    first_name: data.first_name || '',
+                    last_name: data.last_name || '',
+                    dateJoined: data.join_date || '', // Set join_date here
+                });
+    
+                setEditedProfileData(data); // Initialize the edited data with the fetched data
+                console.log('Profile data set successfully:', data); // Debug: confirm data was set
+                
+            } catch (error) {
+                console.error('Error fetching profile data:', error); // Debug: log any error during fetch
+            }
+        };
+    
+        fetchProfileData();
+    }, [router]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setEditedProfileData((prev) => ({
-            ...prev,
+        setEditedProfileData((prevData) => ({
+            ...prevData,
             [name]: value,
         }));
     };
 
-    const handleSave = () => {
-        setProfileData(editedProfileData);
-        setEditMode(false);
+    const handleSave = async () => {
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/profile/${profileData.user_id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(editedProfileData),
+            });
+
+            if (response.ok) {
+                const updatedData = await response.json();
+                setProfileData(updatedData); // Update profile data in the state
+                setEditMode(false);
+            } else {
+                console.error('Failed to update profile data');
+            }
+        } catch (error) {
+            console.error('Error updating profile data:', error);
+        }
     };
 
     const handleCancel = () => {
         setEditedProfileData(profileData);
         setEditMode(false);
     };
+
+    if (!profileData) return <div>Loading...</div>;
 
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-200 text-gray-800 font-sans">
@@ -48,7 +118,7 @@ export default function ProfilePage() {
                         <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-6 sm:space-y-0 sm:space-x-6">
                             {/* Profile Image */}
                             <Image
-                                src="https://picsum.photos/200"
+                                src={profileData.profile_picture} // Use the dynamic profile picture
                                 alt="Profile Picture"
                                 width={150}
                                 height={150}
@@ -60,16 +130,12 @@ export default function ProfilePage() {
                                 {!editMode ? (
                                     <div className="space-y-2">
                                         <h2 className="text-3xl font-semibold text-blue-600">
-                                            {profileData.name}
+                                            {profileData.first_name} {profileData.last_name}
                                         </h2>
                                         <p className="text-sm text-gray-600">Email: {profileData.email}</p>
-                                        <p className="text-sm text-gray-600">Phone: {profileData.phone}</p>
-                                        <p className="text-sm text-gray-600">
-                                            Address: {profileData.address}
-                                        </p>
-                                        <p className="text-sm text-gray-600">
-                                            Date Joined: {profileData.dateJoined}
-                                        </p>
+                                        <p className="text-sm text-gray-600">Phone: {profileData.phone || 'Not provided'}</p>
+                                        <p className="text-sm text-gray-600">Address: {profileData.address || 'Not provided'}</p>
+                                        <p className="text-sm text-gray-600">Date Joined: {profileData.dateJoined || 'Not provided'}</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
@@ -79,6 +145,14 @@ export default function ProfilePage() {
                                             value={editedProfileData.name}
                                             onChange={handleInputChange}
                                             placeholder="Name"
+                                            className="w-full p-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        />
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            value={editedProfileData.email}
+                                            onChange={handleInputChange}
+                                            placeholder="Email"
                                             className="w-full p-3 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                         />
                                         <input
@@ -105,11 +179,11 @@ export default function ProfilePage() {
                             <div className="flex flex-col items-center space-y-4 sm:ml-6">
                                 <div className="text-center">
                                     <p className="text-lg font-bold text-gray-700">Rating</p>
-                                    <p className="text-2xl text-blue-600">{profileData.rating}/5</p>
+                                    <p className="text-2xl text-blue-600">{profileData.rating || 0}/5</p>
                                 </div>
                                 <div className="text-center">
                                     <p className="text-lg font-bold text-gray-700">Balance</p>
-                                    <p className="text-2xl text-green-600">{profileData.balance}</p>
+                                    <p className="text-2xl text-green-600">{profileData.balance || 0}</p>
                                 </div>
                             </div>
                         </div>
@@ -174,13 +248,6 @@ export default function ProfilePage() {
                     </div>
                 </div>
             </section>
-
-            {/* Footer */}
-            <footer className="bg-gray-800 text-white py-6 mt-auto">
-                <div className="container mx-auto text-center">
-                    <p>&copy; 2024 CarTrade. All Rights Reserved.</p>
-                </div>
-            </footer>
         </div>
     );
 }
