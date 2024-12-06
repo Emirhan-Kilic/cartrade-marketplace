@@ -1,7 +1,8 @@
 'use client';
-import {useState} from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import Navbar from '../components/Navbar';
+import { FaAd, FaHandshake, FaHeart, FaStar } from 'react-icons/fa';
 
 export default function ProfilePage() {
     const [editMode, setEditMode] = useState(false);
@@ -11,14 +12,14 @@ export default function ProfilePage() {
         phone: '(123) 456-7890',
         address: '123 Main St, Springfield, USA',
         rating: 4.8,
-        balance: '$500.00',  // Assuming balance is part of the database columns
-        dateJoined: 'January 1, 2023',  // Assuming a dateJoined column exists
+        balance: '$500.00', // Assuming balance is part of the database columns
+        dateJoined: 'January 1, 2023', // Assuming a dateJoined column exists
     });
 
     const [editedProfileData, setEditedProfileData] = useState(profileData);
 
     const handleInputChange = (e) => {
-        const {name, value} = e.target;
+        const { name, value } = e.target;
         setEditedProfileData((prev) => ({
             ...prev,
             [name]: value,
@@ -38,13 +39,13 @@ export default function ProfilePage() {
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-200 text-gray-800 font-sans">
             {/* Navbar */}
-            <Navbar/>
+            <Navbar />
 
             {/* Profile Section */}
             <section className="mt-20">
                 <div className="container mx-auto px-6">
                     <div className="bg-white shadow-lg rounded-lg p-8">
-                        <div className="flex flex-col sm:flex-row items-center space-y-6 sm:space-y-0 sm:space-x-6">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-6 sm:space-y-0 sm:space-x-6">
                             {/* Profile Image */}
                             <Image
                                 src="https://picsum.photos/200"
@@ -65,12 +66,6 @@ export default function ProfilePage() {
                                         <p className="text-sm text-gray-600">Phone: {profileData.phone}</p>
                                         <p className="text-sm text-gray-600">
                                             Address: {profileData.address}
-                                        </p>
-                                        <p className="text-sm text-gray-600">
-                                            Rating: {profileData.rating}/5
-                                        </p>
-                                        <p className="text-sm text-gray-600">
-                                            Balance: {profileData.balance}
                                         </p>
                                         <p className="text-sm text-gray-600">
                                             Date Joined: {profileData.dateJoined}
@@ -105,33 +100,76 @@ export default function ProfilePage() {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Rating and Balance Section */}
+                            <div className="flex flex-col items-center space-y-4 sm:ml-6">
+                                <div className="text-center">
+                                    <p className="text-lg font-bold text-gray-700">Rating</p>
+                                    <p className="text-2xl text-blue-600">{profileData.rating}/5</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-lg font-bold text-gray-700">Balance</p>
+                                    <p className="text-2xl text-green-600">{profileData.balance}</p>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Action Buttons */}
-                        <div className="mt-6 flex justify-end space-x-4">
-                            {editMode ? (
-                                <>
+                        {/* Navigation and Action Buttons */}
+                        <div className="mt-6 flex flex-col sm:flex-row justify-between items-center sm:space-x-4">
+                            {/* Left-Side Button (Edit Profile) */}
+                            <div className="flex justify-start">
+                                {editMode ? (
+                                    <>
+                                        <button
+                                            className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition"
+                                            onClick={handleSave}
+                                        >
+                                            Save
+                                        </button>
+                                        <button
+                                            className="bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
+                                            onClick={handleCancel}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </>
+                                ) : (
                                     <button
-                                        className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition"
-                                        onClick={handleSave}
+                                        className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition"
+                                        onClick={() => setEditMode(true)}
                                     >
-                                        Save
+                                        Edit Profile
                                     </button>
-                                    <button
-                                        className="bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
-                                        onClick={handleCancel}
-                                    >
-                                        Cancel
-                                    </button>
-                                </>
-                            ) : (
+                                )}
+                            </div>
+
+                            {/* Right-Side Buttons (My Ads, My Offers, Wishlisted Ads, My Reviews) */}
+                            <div className="flex flex-col sm:flex-row justify-center sm:space-x-4">
                                 <button
-                                    className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition"
-                                    onClick={() => setEditMode(true)}
+                                    className="flex items-center bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition"
+                                    onClick={() => window.location.href = '/my-ads'}
                                 >
-                                    Edit Profile
+                                    <FaAd className="mr-2" /> My Ads
                                 </button>
-                            )}
+                                <button
+                                    className="flex items-center bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition"
+                                    onClick={() => window.location.href = '/my-offers'}
+                                >
+                                    <FaHandshake className="mr-2" /> My Offers
+                                </button>
+                                <button
+                                    className="flex items-center bg-pink-600 text-white py-2 px-4 rounded-lg hover:bg-pink-700 transition"
+                                    onClick={() => window.location.href = '/wishlisted-ads'}
+                                >
+                                    <FaHeart className="mr-2" /> Wishlisted Ads
+                                </button>
+                                <button
+                                    className="flex items-center bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700 transition"
+                                    onClick={() => window.location.href = '/my-reviews'}
+                                >
+                                    <FaStar className="mr-2" /> My Reviews
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
