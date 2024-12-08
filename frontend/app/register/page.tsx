@@ -36,6 +36,8 @@ export default function Register() {
         body: JSON.stringify(data),
       });
 
+      console.log(data)
+
       if (response.ok) {
         window.location.href = '/login';
       } else {

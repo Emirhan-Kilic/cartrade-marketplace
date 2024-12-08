@@ -9,6 +9,11 @@ from dotenv import load_dotenv
 from passlib.context import CryptContext
 from datetime import datetime, date
 
+
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from fastapi import HTTPException
+
 # Load environment variables
 load_dotenv()
 
@@ -68,17 +73,7 @@ def get_db_connection():
         raise HTTPException(status_code=500, detail=f"Database connection failed: {err}")
 
 # Models for User Registration and Login
-class UserCreateRequest(BaseModel):
-    first_name: str
-    last_name: str
-    email: str
-    password: str
-    phone_number: str
-    address: str
-    rating: float
-    join_date: str
-    profile_picture: str
-    balance: float
+
 
 class UserLoginRequest(BaseModel):
     email: str
@@ -138,32 +133,76 @@ def db_check():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {e}")
 
+
+class UserCreateRequest(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    password: str
+    role: str
+
 # Register user endpoint
 @app.post("/register")
 async def register_user(user: UserCreateRequest):
     connection = get_db_connection()
     cursor = connection.cursor()
 
+    # Check if email already exists
     cursor.execute("SELECT * FROM user WHERE email = %s", (user.email,))
     if cursor.fetchone():
         cursor.close()
         connection.close()
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    # Hash the password
     hashed_password = hash_password(user.password)
 
+    # Insert user into the `user` table, relying on DB defaults for optional fields
     cursor.execute(
         """
-        INSERT INTO user (first_name, last_name, email, password, phone_number, address, rating, join_date, profile_picture, balance)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO user (first_name, last_name, email, password)
+        VALUES (%s, %s, %s, %s)
         """,
-        (user.first_name, user.last_name, user.email, hashed_password, user.phone_number, user.address, user.rating,
-         user.join_date, user.profile_picture, user.balance)
+        (
+            user.first_name, 
+            user.last_name, 
+            user.email, 
+            hashed_password, 
+        )
     )
+    connection.commit()
+
+    # Handle role-specific logic
+    if user.role == "inspector":
+        cursor.execute(
+            """
+            INSERT INTO inspector (user_id)
+            VALUES (LAST_INSERT_ID())
+            """
+        )
+    elif user.role == "buyer-seller":
+        cursor.execute(
+            """
+            INSERT INTO owner_seller (user_id)
+            VALUES (LAST_INSERT_ID())
+            """
+        )
+    elif user.role == "owner-seller":  # Optionally, handle logic for "buyer-seller"
+        pass
+    else:
+        cursor.close()
+        connection.close()
+        raise HTTPException(status_code=400, detail="Invalid role provided")
+
+    # Commit the changes and close the connection
     connection.commit()
     cursor.close()
     connection.close()
+
     return {"message": "User successfully registered"}
+
+
+
 
 # Login user endpoint
 @app.post("/login")
@@ -224,9 +263,6 @@ async def view_user_profile(user_id: int):
 
 
 
-from pydantic import BaseModel, EmailStr
-from typing import Optional
-from fastapi import HTTPException
 
 class UserProfileUpdateRequest(BaseModel):
     first_name: Optional[str] = None
