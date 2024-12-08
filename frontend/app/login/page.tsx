@@ -1,7 +1,7 @@
 'use client';
-import {useState, useEffect} from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import {useRouter} from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 export default function Login() {
   // State for email, password, loading state, and login status message
@@ -43,7 +43,7 @@ export default function Login() {
     setError('');
     setLoading(true);
 
-    const data = {email, password};
+    const data = { email, password };
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
@@ -58,9 +58,13 @@ export default function Login() {
         // Parse the response body as JSON
         const responseData = await response.json();
 
-        // Save the id and email to localStorage
+        // Log the response data for debugging
+        console.log('Response Data:', responseData);
+
+        // Save the id, email, and role to localStorage
         localStorage.setItem('userId', responseData.id);
         localStorage.setItem('userEmail', responseData.email);
+        localStorage.setItem('userRole', responseData.role); // Save role to localStorage
 
         // If rememberMe is checked, save email and password to localStorage
         if (rememberMe) {
@@ -72,8 +76,23 @@ export default function Login() {
           localStorage.removeItem('savedPassword');
         }
 
-        // Redirect to protected route
-        router.push('/browseAds'); // Or wherever you want to redirect
+        // Role-based routing
+        const userRole = responseData.role;
+        console.log('User Role:', userRole); // Log the role to check
+
+        // Delay to ensure role is set before redirect
+        setTimeout(() => {
+          if (userRole === 'owner_seller') {
+            router.push('/browseAds'); // Redirect to the browse ads page
+          } else if (userRole === 'inspector') {
+            router.push('/inspecProfile'); // Redirect to the inspector profile
+          } else if (userRole === 'admin') {
+            router.push('/adminProfile'); // Redirect to the admin profile
+          } else {
+            setError('Invalid role or access not allowed');
+          }
+        }, 500); // Small delay to ensure redirection works correctly
+
       } else {
         // Handle failed login (e.g., wrong credentials)
         setError('Invalid email or password');
@@ -89,8 +108,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 font-sans">
       {/* Login Section */}
-      <section
-        className="flex-grow flex items-center justify-center bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-12 sm:py-16 md:py-24">
+      <section className="flex-grow flex items-center justify-center bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-12 sm:py-16 md:py-24">
         <div className="container mx-auto px-4 sm:px-8 w-full max-w-lg">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-6 leading-tight text-center">
             Login to Your Account

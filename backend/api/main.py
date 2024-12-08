@@ -210,6 +210,7 @@ async def login(user: UserLoginRequest):
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
+    # Query to check if the user exists in the user table
     cursor.execute("SELECT * FROM user WHERE email = %s", (user.email,))
     existing_user = cursor.fetchone()
 
@@ -218,9 +219,39 @@ async def login(user: UserLoginRequest):
         connection.close()
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
+    # Check for role in the inspector, owner_seller, or admin tables
+    role = None
+    cursor.execute("SELECT 1 FROM inspector WHERE user_id = %s", (existing_user['user_ID'],))
+    if cursor.fetchone():
+        role = "inspector"
+
+    if not role:
+        cursor.execute("SELECT 1 FROM owner_seller WHERE user_id = %s", (existing_user['user_ID'],))
+        if cursor.fetchone():
+            role = "owner_seller"
+
+    if not role:
+        cursor.execute("SELECT 1 FROM admin WHERE user_id = %s", (existing_user['user_ID'],))
+        if cursor.fetchone():
+            role = "admin"
+
     cursor.close()
     connection.close()
-    return {"id": existing_user['user_ID'], "email": existing_user['email']}
+
+    # If no role was found, assume 'buyer-seller' as the default role
+    if not role:
+        role = "buyer-seller"
+
+    return {
+        "id": existing_user['user_ID'],
+        "email": existing_user['email'],
+        "role": role  # Include the role in the response
+    }
+
+
+
+
+
 
 # View user profile endpoint
 class UserProfileUpdateRequest(BaseModel):
