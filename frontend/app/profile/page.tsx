@@ -257,13 +257,13 @@ export default function ProfilePage() {
                             <div className="flex flex-col sm:flex-row justify-center sm:space-x-4 mt-4 sm:mt-0"> {/* Added margin-top for spacing in small screens */}
                                 <button
                                     className="flex items-center bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition"
-                                    onClick={() => window.location.href = '/my-ads'}
+                                    onClick={() => window.location.href = '/myAds'}
                                 >
                                     <FaAd className="mr-2" /> My Ads
                                 </button>
                                 <button
                                     className="flex items-center bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition"
-                                    onClick={() => window.location.href = '/my-offers'}
+                                    onClick={() => window.location.href = '/myOffers'}
                                 >
                                     <FaHandshake className="mr-2" /> My Offers
                                 </button>
