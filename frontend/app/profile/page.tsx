@@ -23,7 +23,7 @@ export default function ProfilePage() {
     // Check if the user is logged in
     useEffect(() => {
         const userId = localStorage.getItem('userId');
-        
+
         if (!userId) {
             // Redirect to login if user is not logged in
             router.push('/login');
@@ -33,19 +33,19 @@ export default function ProfilePage() {
         const fetchProfileData = async () => {
             try {
                 console.log('Fetching profile data for userId:', userId); // Debug: show which user ID is being fetched
-                
+
                 const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/profile/${userId}`);
-                
+
                 console.log('API response:', response); // Debug: log the full response object
-                
+
                 if (!response.ok) {
                     console.error('Failed to fetch profile data: ', response.statusText); // Debug: log if fetch fails
                     return;
                 }
-                
+
                 const data = await response.json();
                 console.log('Fetched profile data:', data); // Debug: log the fetched data
-                
+
                 setProfileData({
                     ...data,
                     phone: data.phone_number || '', // Changed to phone_number
@@ -57,15 +57,15 @@ export default function ProfilePage() {
                     last_name: data.last_name || '',
                     dateJoined: data.join_date || '', // Set join_date here
                 });
-    
+
                 setEditedProfileData(data); // Initialize the edited data with the fetched data
                 console.log('Profile data set successfully:', data); // Debug: confirm data was set
-                
+
             } catch (error) {
                 console.error('Error fetching profile data:', error); // Debug: log any error during fetch
             }
         };
-    
+
         fetchProfileData();
     }, [router]);
 
@@ -76,21 +76,57 @@ export default function ProfilePage() {
             [name]: value,
         }));
     };
-
+    
     const handleSave = async () => {
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/profile/${profileData.user_id}`, {
+            // Make sure to use the correct user ID
+            const userId = localStorage.getItem('userId');
+    
+            // Initialize the profile data to update
+            let profileDataToUpdate = {};
+    
+            // Only include fields that have changed in the profileDataToUpdate
+            if (editedProfileData.name !== profileData.name) {
+                profileDataToUpdate.first_name = editedProfileData.name.split(' ')[0];  // Assuming name has first and last name
+                profileDataToUpdate.last_name = editedProfileData.name.split(' ')[1] || '';  // Default to empty if last name is missing
+            }
+    
+            if (editedProfileData.email !== profileData.email) {
+                profileDataToUpdate.email = editedProfileData.email;
+            }
+    
+            if (editedProfileData.phone !== profileData.phone) {
+                profileDataToUpdate.phone_number = editedProfileData.phone || '';  // Ensure phone number is passed, even if empty
+            }
+    
+            if (editedProfileData.address !== profileData.address) {
+                profileDataToUpdate.address = editedProfileData.address || '';  // Ensure address is passed, even if empty
+            }
+    
+            // If nothing was changed, exit early
+            if (Object.keys(profileDataToUpdate).length === 0) {
+                console.log('No changes detected');
+                return;
+            }
+    
+            console.log("Data being sent to backend:", profileDataToUpdate);
+    
+            // Send PUT request to the backend API to update the profile
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/profile/${userId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(editedProfileData),
+                body: JSON.stringify(profileDataToUpdate),  // Sending only the changed data
             });
-
+    
+            // Check if the response is successful
             if (response.ok) {
                 const updatedData = await response.json();
-                setProfileData(updatedData); // Update profile data in the state
-                setEditMode(false);
+                setEditMode(false); // Disable edit mode
+    
+                // Reload the page after successful update
+                window.location.reload();  // This will reload the page
             } else {
                 console.error('Failed to update profile data');
             }
@@ -191,7 +227,7 @@ export default function ProfilePage() {
                         {/* Navigation and Action Buttons */}
                         <div className="mt-6 flex flex-col sm:flex-row justify-between items-center sm:space-x-4">
                             {/* Left-Side Button (Edit Profile) */}
-                            <div className="flex justify-start">
+                            <div className="flex justify-start space-x-4"> {/* Added space-x-4 to add space between buttons */}
                                 {editMode ? (
                                     <>
                                         <button
@@ -218,7 +254,7 @@ export default function ProfilePage() {
                             </div>
 
                             {/* Right-Side Buttons (My Ads, My Offers, Wishlisted Ads, My Reviews) */}
-                            <div className="flex flex-col sm:flex-row justify-center sm:space-x-4">
+                            <div className="flex flex-col sm:flex-row justify-center sm:space-x-4 mt-4 sm:mt-0"> {/* Added margin-top for spacing in small screens */}
                                 <button
                                     className="flex items-center bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition"
                                     onClick={() => window.location.href = '/my-ads'}

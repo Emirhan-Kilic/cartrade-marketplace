@@ -42,13 +42,13 @@ export default function Home() {
           </p>
           <div className="flex justify-center gap-8">
             <a
-              href="#sell-car"
+              href="/register"
               className="rounded-full bg-yellow-400 text-black px-8 py-3 text-lg font-semibold hover:bg-yellow-500 transition"
             >
               Sell Your Car
             </a>
             <a
-              href="#browse"
+              href="/browseAds"
               className="rounded-full bg-white text-blue-600 px-8 py-3 text-lg font-semibold hover:bg-gray-100 transition"
             >
               Browse Cars

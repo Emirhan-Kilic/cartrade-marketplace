@@ -221,3 +221,82 @@ async def view_user_profile(user_id: int):
             user['join_date'] = str(user['join_date'])
 
     return user
+
+
+
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from fastapi import HTTPException
+
+class UserProfileUpdateRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+@app.put("/user/profile/{user_id}")
+async def update_user_profile(user_id: int, user: UserProfileUpdateRequest):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    # Check if the provided email already exists for a different user
+    if user.email:
+        cursor.execute("SELECT * FROM user WHERE email = %s AND user_ID != %s", (user.email, user_id))
+        if cursor.fetchone():
+            cursor.close()
+            connection.close()
+            raise HTTPException(status_code=400, detail="Email is already in use by another user")
+
+    # Build the update query dynamically based on the fields that are provided
+    update_fields = []
+    values = []
+
+    # Add fields to the update query if they are provided
+    if user.first_name is not None:
+        update_fields.append("first_name = %s")
+        values.append(user.first_name)
+
+    if user.last_name is not None:
+        update_fields.append("last_name = %s")
+        values.append(user.last_name)
+
+    if user.email is not None:
+        update_fields.append("email = %s")
+        values.append(user.email)
+
+    if user.phone_number is not None:
+        update_fields.append("phone_number = %s")
+        values.append(user.phone_number)
+
+    if user.address is not None:
+        update_fields.append("address = %s")
+        values.append(user.address)
+
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    # Add the user_id to the end of the values list for the WHERE clause
+    values.append(user_id)
+
+    # Construct the dynamic query
+    query = f"""
+        UPDATE user
+        SET {', '.join(update_fields)}
+        WHERE user_ID = %s
+    """
+    
+    # Execute the query
+    cursor.execute(query, tuple(values))
+    connection.commit()
+    cursor.close()
+    connection.close()
+    
+    return {"message": "User profile successfully updated"}
+
+
+
+
