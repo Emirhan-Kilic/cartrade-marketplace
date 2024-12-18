@@ -687,7 +687,7 @@ async def get_user_vehicles(user_id: int):
     cursor = connection.cursor(dictionary=True)
 
     try:
-        # Query to fetch vehicle details along with car, motorcycle, or truck specific information
+        # Query to fetch vehicle and ad details along with car, motorcycle, or truck specific information
         cursor.execute("""
             SELECT v.*, 
                    c.number_of_doors, c.seating_capacity, c.transmission,
@@ -698,7 +698,9 @@ async def get_user_vehicles(user_id: int):
                        WHEN m.vehicle_ID IS NOT NULL THEN 'motorcycle'
                        WHEN t.vehicle_ID IS NOT NULL THEN 'truck'
                        ELSE 'unknown'
-                   END AS vehicle_type
+                   END AS vehicle_type,
+                   a.ad_ID, a.post_date, a.expiry_date, a.is_premium, 
+                   a.views, a.status, a.owner AS ad_owner, a.associated_vehicle
             FROM vehicles v
             LEFT JOIN car c ON v.vehicle_ID = c.vehicle_ID
             LEFT JOIN motorcycle m ON v.vehicle_ID = m.vehicle_ID
@@ -721,3 +723,37 @@ async def get_user_vehicles(user_id: int):
         connection.close()
 
 
+
+@app.delete("/delete_ad/{ad_id}")
+async def delete_ad(ad_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Check if the ad exists
+        cursor.execute("SELECT associated_vehicle FROM ads WHERE ad_ID = %s", (ad_id,))
+        result = cursor.fetchone()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="Ad not found")
+
+        associated_vehicle = result[0]
+
+        # Delete the ad
+        print(f"Deleting ad with ID={ad_id}")
+        cursor.execute("DELETE FROM ads WHERE ad_ID = %s", (ad_id,))
+
+        # Delete the vehicle associated with the ad
+        print(f"Deleting vehicle with ID={associated_vehicle}")
+        cursor.execute("DELETE FROM vehicles WHERE vehicle_ID = %s", (associated_vehicle,))
+
+        connection.commit()
+
+        return {"message": "Ad, associated vehicle, and related data deleted successfully"}
+
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()

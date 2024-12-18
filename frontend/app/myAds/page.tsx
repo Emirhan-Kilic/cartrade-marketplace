@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import {useState, useEffect} from 'react';
 import Image from 'next/image';
 import Navbar from '../components/Navbar';
 import VehicleDetailsModal from "./VehicleDetailsModal";
@@ -23,7 +23,6 @@ export default function SellerDashboard() {
 
     // Fetch vehicles data from the API on component mount
     useEffect(() => {
-        // Get the userId from sessionStorage
         const userId = sessionStorage.getItem('userId');
         if (userId) {
             const fetchVehicles = async () => {
@@ -44,20 +43,18 @@ export default function SellerDashboard() {
         } else {
             console.error('User ID not found in session storage');
         }
-    }, []); // Empty dependency array means this runs once after the first render
+    }, []);
 
     const mockOffers = [
-        { buyerName: 'John Doe', price: 48000 },
-        { buyerName: 'Jane Smith', price: 49000 }
+        {buyerName: 'John Doe', price: 48000},
+        {buyerName: 'Jane Smith', price: 49000}
     ];
 
-    // Function to open the modal
     const openModal = (vehicle: any, type: string) => {
         setSelectedVehicle(vehicle);
         setIsModalOpen(type);
     };
 
-    // Function to close the modal
     const closeModal = () => {
         setIsModalOpen(null);
         setSelectedVehicle(null);
@@ -79,9 +76,40 @@ export default function SellerDashboard() {
         closeModal();
     };
 
-    const handleDeleteListing = (vehicleId: number) => {
-        setVehicles(vehicles.filter((vehicle) => vehicle.vehicle_ID !== vehicleId));
+    const handleDeleteListing = async (vehicleId: number, adId: number, status: string) => {
+        if (status === 'Sold') {
+            alert('This vehicle cannot be deleted because it is marked as Sold.');
+            return; // Prevent deletion if status is "Sold"
+        }
+
+        const confirmDelete = window.confirm('Are you sure you want to delete this ad and vehicle?');
+
+        if (!confirmDelete) {
+            return; // If the user cancels, do nothing
+        }
+
+        try {
+            // Make a DELETE request to the backend
+            const response = await fetch(`http://localhost:8000/delete_ad/${adId}`, {
+                method: 'DELETE',
+            });
+
+            if (response.ok) {
+                // If deletion was successful, update the vehicles state
+                setVehicles((prevVehicles) =>
+                    prevVehicles.filter((vehicle) => vehicle.vehicle_ID !== vehicleId)
+                );
+                alert('Ad and vehicle deleted successfully');
+            } else {
+                const data = await response.json();
+                alert(`Failed to delete: ${data.detail}`);
+            }
+        } catch (error) {
+            console.error('Error deleting ad:', error);
+            alert('Error deleting ad');
+        }
     };
+
 
     const handleAddVehicle = (e: React.FormEvent) => {
         e.preventDefault();
@@ -95,7 +123,7 @@ export default function SellerDashboard() {
 
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-200 text-gray-800 font-sans">
-            <Navbar />
+            <Navbar/>
 
             <section className="mt-20 bg-white py-6 shadow-md">
                 <div className="container mx-auto px-6">
@@ -116,7 +144,10 @@ export default function SellerDashboard() {
                             <p>No vehicles found.</p>
                         ) : (
                             vehicles.map((vehicle) => (
-                                <div key={vehicle.vehicle_ID} className="bg-white shadow-lg rounded-lg overflow-hidden">
+                                <div
+                                    key={vehicle.vehicle_ID}
+                                    className="bg-white shadow-lg rounded-lg overflow-hidden transform hover:scale-105 transition-transform duration-200"
+                                >
                                     <Image
                                         src={vehicle.photo || 'https://picsum.photos/400/250'} // Fallback to default image if no photo
                                         alt={`${vehicle.manufacturer} ${vehicle.model}`}
@@ -125,11 +156,50 @@ export default function SellerDashboard() {
                                         className="w-full h-48 object-cover"
                                     />
                                     <div className="p-6">
-                                        <h3 className="text-xl font-bold">{`${vehicle.manufacturer} ${vehicle.model}`}</h3>
-                                        <p className="text-sm text-gray-500">{`${vehicle.city}, ${vehicle.state}`}</p>
-                                        <p className="text-lg font-semibold text-blue-600">${vehicle.price.toLocaleString()}</p>
+                                        <h3 className="text-xl font-bold mb-2">{`${vehicle.manufacturer} ${vehicle.model}`}</h3>
+                                        <p className="text-sm text-gray-500 mb-2">{`${vehicle.city}, ${vehicle.state}`}</p>
+                                        <p className="text-lg font-semibold text-blue-600 mb-4">${vehicle.price.toLocaleString()}</p>
 
-                                        <div className="flex space-x-4 mt-4">
+                                        {/* Vehicle Details Section */}
+                                        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <span
+                            className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                                vehicle.status === 'Active'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-red-100 text-red-700'
+                            }`}
+                        >
+                            Status: {vehicle.status}
+                        </span>
+                                            <div className="flex items-center text-gray-500 text-xs">
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    className="h-4 w-4 mr-1"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M15 10l4.5-4.5m-9 9l-4.5 4.5M19.5 5.5l-9 9m0-9l9 9"
+                                                    />
+                                                </svg>
+                                                {vehicle.views} Views
+                                            </div>
+                                            <span
+                                                className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                                                    vehicle.is_premium
+                                                        ? 'bg-yellow-100 text-yellow-700'
+                                                        : 'bg-gray-100 text-gray-600'
+                                                }`}
+                                            >
+                            {vehicle.is_premium ? 'Premium' : 'Not Premium'}
+                        </span>
+                                        </div>
+
+                                        <div className="flex space-x-4">
                                             <button
                                                 className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 focus:outline-none transition-all duration-200"
                                                 onClick={() => openModal(vehicle, 'details')}
@@ -146,10 +216,11 @@ export default function SellerDashboard() {
 
                                         <button
                                             className="mt-2 w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 focus:outline-none transition-all duration-200"
-                                            onClick={() => handleDeleteListing(vehicle.vehicle_ID)}
+                                            onClick={() => handleDeleteListing(vehicle.vehicle_ID, vehicle.ad_ID, vehicle.status)}
                                         >
                                             Delete Listing
                                         </button>
+
                                     </div>
                                 </div>
                             ))
@@ -183,9 +254,12 @@ export default function SellerDashboard() {
                     selectedVehicle={selectedVehicle}
                     offers={mockOffers}
                     closeModal={closeModal}
-                    onAcceptOffer={() => {}}
-                    onRejectOffer={() => {}}
-                    onCounterOffer={() => {}}
+                    onAcceptOffer={() => {
+                    }}
+                    onRejectOffer={() => {
+                    }}
+                    onCounterOffer={() => {
+                    }}
                 />
             )}
         </div>

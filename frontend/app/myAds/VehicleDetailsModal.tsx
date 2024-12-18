@@ -12,6 +12,15 @@ interface VehicleDetailsModalProps {
         mileage: number;
         city: string;
         state: string;
+        description?: string;
+        vehicle_type: string;
+        transmission?: string;
+        engine_capacity?: number;
+        bike_type?: string;
+        number_of_doors?: number;
+        seating_capacity?: number;
+        cargo_capacity?: number;
+        has_towing_package?: boolean;
     } | null;
     closeModal: () => void;
 }
@@ -25,7 +34,7 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ isOpen, selec
                 className="bg-white rounded-lg w-11/12 sm:w-96 p-6 sm:p-8 shadow-xl transform transition-all duration-300 ease-in-out scale-105">
                 <div className="mb-6">
                     <img
-                        src={selectedVehicle.photo}
+                        src={selectedVehicle.photo || 'https://picsum.photos/400/250'}
                         alt={`${selectedVehicle.manufacturer} ${selectedVehicle.model}`}
                         className="w-full h-56 sm:h-72 object-cover rounded-lg shadow-md"
                     />
@@ -37,6 +46,33 @@ const VehicleDetailsModal: React.FC<VehicleDetailsModalProps> = ({ isOpen, selec
                     <p className="text-sm text-gray-600">Condition: {selectedVehicle.condition}</p>
                     <p className="text-sm text-gray-600">Mileage: {selectedVehicle.mileage.toLocaleString()} miles</p>
                     <p className="text-sm text-gray-600">Location: {selectedVehicle.city}, {selectedVehicle.state}</p>
+
+                    {/* Display Additional Details */}
+                    <p className="text-sm text-gray-600">Type: {selectedVehicle.vehicle_type}</p>
+                    {selectedVehicle.transmission && (
+                        <p className="text-sm text-gray-600">Transmission: {selectedVehicle.transmission}</p>
+                    )}
+                    {selectedVehicle.engine_capacity && (
+                        <p className="text-sm text-gray-600">Engine Capacity: {selectedVehicle.engine_capacity} cc</p>
+                    )}
+                    {selectedVehicle.bike_type && (
+                        <p className="text-sm text-gray-600">Bike Type: {selectedVehicle.bike_type}</p>
+                    )}
+                    {selectedVehicle.number_of_doors && (
+                        <p className="text-sm text-gray-600">Number of Doors: {selectedVehicle.number_of_doors}</p>
+                    )}
+                    {selectedVehicle.seating_capacity && (
+                        <p className="text-sm text-gray-600">Seating Capacity: {selectedVehicle.seating_capacity}</p>
+                    )}
+                    {selectedVehicle.cargo_capacity && (
+                        <p className="text-sm text-gray-600">Cargo Capacity: {selectedVehicle.cargo_capacity} kg</p>
+                    )}
+                    {selectedVehicle.has_towing_package !== undefined && (
+                        <p className="text-sm text-gray-600">Towing Package: {selectedVehicle.has_towing_package ? 'Yes' : 'No'}</p>
+                    )}
+                    {selectedVehicle.description && (
+                        <p className="text-sm text-gray-600 mt-2">Description: {selectedVehicle.description}</p>
+                    )}
                 </div>
                 <button
                     onClick={closeModal}
