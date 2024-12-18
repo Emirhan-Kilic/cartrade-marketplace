@@ -1,19 +1,17 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from typing import List
 import os
 import mysql.connector
 from dotenv import load_dotenv
 from passlib.context import CryptContext
 from datetime import datetime, date
-import decimal
-
-
+from fastapi import HTTPException, APIRouter, Depends
+from datetime import date
+import mysql.connector
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from fastapi import HTTPException
+from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
@@ -367,10 +365,8 @@ async def update_user_profile(user_id: int, user: UserProfileUpdateRequest):
 
 
 
-
-
 class BalanceUpdateRequest(BaseModel):
-    amount: float  # Amount to add to the balance
+    amount: float
 
 @app.put("/user/{user_id}/balance")
 async def update_user_balance(user_id: int, balance_update: BalanceUpdateRequest):
@@ -403,6 +399,209 @@ async def update_user_balance(user_id: int, balance_update: BalanceUpdateRequest
     connection.close()
 
     return {"message": "Balance updated successfully", "new_balance": new_balance}
+
+
+
+
+
+
+
+
+
+
+
+
+class AdCreate(BaseModel):
+    is_premium: Optional[bool] = False
+    associated_vehicle: int
+    owner: int
+
+@app.post("/add_ad/")
+async def add_ad(ad: AdCreate):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Debug print to confirm the received data
+        print(f"Attempting to insert ad with vehicle ID={ad.associated_vehicle} and owner ID={ad.owner}")
+
+        # Calculate expiry date based on premium status
+        current_date = datetime.now()
+        if ad.is_premium:
+            expiry_date = current_date + timedelta(weeks=52)  # 12 months
+        else:
+            expiry_date = current_date + timedelta(weeks=12)  # 3 months
+
+        # Insert the ad record
+        cursor.execute(
+            """
+            INSERT INTO ads (expiry_date, is_premium, associated_vehicle, owner)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                expiry_date,
+                ad.is_premium,
+                ad.associated_vehicle,
+                ad.owner
+            )
+        )
+        connection.commit()
+
+        # Fetch the ad ID of the newly inserted ad
+        cursor.execute("SELECT LAST_INSERT_ID()")
+        ad_id = cursor.fetchone()[0]
+
+        return {"message": "Ad created successfully", "ad_id": ad_id}
+
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+class VehicleCreate(BaseModel):
+    manufacturer: str
+    model: str
+    year: int
+    price: float
+    mileage: float
+    condition: str
+    city: str
+    state: str
+    description: str
+
+class CarCreate(BaseModel):
+    number_of_doors: int
+    seating_capacity: int
+    transmission: str
+
+class MotorcycleCreate(BaseModel):
+    engine_capacity: int
+    bike_type: str
+
+class TruckCreate(BaseModel):
+    cargo_capacity: int
+    has_towing_package: bool
+
+@app.post("/add_vehicle/")
+async def add_vehicle(
+        vehicle: VehicleCreate,
+        car: Optional[CarCreate] = None,
+        motorcycle: Optional[MotorcycleCreate] = None,
+        truck: Optional[TruckCreate] = None,
+        ad: Optional[AdCreate] = None,  # Optional ad data
+):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        print(f"Attempting to insert vehicle: {vehicle}")  # Debug print to check vehicle data
+
+        # Insert the vehicle record
+        cursor.execute(
+            """
+            INSERT INTO vehicles (manufacturer, model, year, price, mileage, `condition`, city, state, description, listing_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                vehicle.manufacturer,
+                vehicle.model,
+                vehicle.year,
+                vehicle.price,
+                vehicle.mileage,
+                vehicle.condition,
+                vehicle.city,
+                vehicle.state,
+                vehicle.description,
+                date.today()
+            )
+        )
+
+        connection.commit()
+        print("Vehicle record inserted successfully.")
+
+        # Fetch the vehicle ID of the newly inserted vehicle
+        cursor.execute("SELECT LAST_INSERT_ID()")
+        vehicle_id = cursor.fetchone()[0]
+        print(f"Fetched vehicle ID: {vehicle_id}")
+
+        # Insert the specific vehicle type (Car, Motorcycle, Truck) if applicable
+        if car:
+            print(f"Attempting to insert car data: {car}")  # Debug print for car data
+            cursor.execute(
+                """
+                INSERT INTO car (vehicle_ID, number_of_doors, seating_capacity, transmission)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (
+                    vehicle_id,
+                    car.number_of_doors,
+                    car.seating_capacity,
+                    car.transmission
+                )
+            )
+            connection.commit()
+            print("Car data inserted successfully.")
+
+        if motorcycle:
+            print(f"Attempting to insert motorcycle data: {motorcycle}")  # Debug print for motorcycle data
+            cursor.execute(
+                """
+                INSERT INTO motorcycle (vehicle_ID, engine_capacity, bike_type)
+                VALUES (%s, %s, %s)
+                """,
+                (
+                    vehicle_id,
+                    motorcycle.engine_capacity,
+                    motorcycle.bike_type
+                )
+            )
+            connection.commit()
+            print("Motorcycle data inserted successfully.")
+
+        if truck:
+            print(f"Attempting to insert truck data: {truck}")  # Debug print for truck data
+            cursor.execute(
+                """
+                INSERT INTO truck (vehicle_ID, cargo_capacity, has_towing_package)
+                VALUES (%s, %s, %s)
+                """,
+                (
+                    vehicle_id,
+                    truck.cargo_capacity,
+                    truck.has_towing_package
+                )
+            )
+            connection.commit()
+            print("Truck data inserted successfully.")
+
+        # If ad data is provided, call the add_ad function to create the ad
+        if ad:
+            ad_data = AdCreate(
+                associated_vehicle=vehicle_id,
+                owner=ad.owner,
+                is_premium=ad.is_premium
+            )
+            # Call the add_ad function to create the ad for the newly added vehicle
+            response = await add_ad(ad_data)  # Ensuring the ad is created
+            print(f"Ad created for vehicle ID {vehicle_id}, Ad ID: {response['ad_id']}")
+
+        return {"message": "Vehicle and optional ad added successfully", "vehicle_id": vehicle_id}
+
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")  # Debug print for database error
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")  # Debug print for other errors
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+    finally:
+        cursor.close()
+        connection.close()
+        print("Connection closed.")  # Debug print to confirm connection close
+
+
 
 
 

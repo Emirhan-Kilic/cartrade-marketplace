@@ -152,7 +152,7 @@ export default function ProfilePage() {
 
             <section className="mt-20">
                 <div className="container mx-auto px-6 mt-4">
-                    <div className="bg-white shadow-lg rounded-lg p-8">
+                    <div className="bg-white shadow-2xl rounded-lg p-10">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-6 sm:space-y-0 sm:space-x-6">
                             <Image
                                 src={profileData.profile_picture}
