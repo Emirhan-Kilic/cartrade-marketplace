@@ -1,12 +1,12 @@
 'use client';
 import Image from 'next/image';
-import Link from 'next/link'; // Add Link for routing
+import Link from 'next/link';
 
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 font-sans">
-      {/* Navbar - Modern and Elegant with Blurry Background */}
-      <nav className="bg-transparent text-white py-6 fixed top-0 left-0 right-0 z-50 shadow-md backdrop-blur-lg">
+      {/* Navbar */}
+      <nav className="bg-blue-800 text-white py-4 fixed top-0 left-0 right-0 z-50 shadow-md">
         <div className="container mx-auto flex justify-between items-center px-8">
           {/* Brand */}
           <div className="text-3xl font-semibold tracking-wide">
@@ -32,9 +32,9 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-24">
+      <section className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-32 mt-16">
         <div className="container mx-auto text-center">
-          <h1 className="text-5xl sm:text-6xl font-extrabold mb-4 leading-tight">
+          <h1 className="text-5xl sm:text-6xl font-extrabold mb-6 leading-tight">
             Your Trusted Marketplace for Buying and Selling Cars
           </h1>
           <p className="text-lg sm:text-xl mb-8">
@@ -47,12 +47,6 @@ export default function Home() {
             >
               Sell Your Car
             </a>
-            <a
-              href="/browseAds"
-              className="rounded-full bg-white text-blue-600 px-8 py-3 text-lg font-semibold hover:bg-gray-100 transition"
-            >
-              Browse Cars
-            </a>
           </div>
         </div>
       </section>
@@ -62,90 +56,26 @@ export default function Home() {
         <div className="container mx-auto text-center">
           <h2 className="text-4xl font-semibold text-gray-800 mb-10">Featured Cars</h2>
           <div className="flex gap-8 flex-wrap justify-center">
-            {/* Example Featured Car 1 */}
-            <div className="bg-white shadow-xl rounded-xl w-72 p-6 transition transform hover:scale-105 hover:shadow-2xl hover:bg-gray-50">
-              <Image
-                src="https://picsum.photos/200/300"
-                alt="Featured Car"
-                width={200}
-                height={300}
-                className="rounded-xl mb-4"
-              />
-              <h3 className="text-xl font-semibold mb-2 text-gray-800">2020 Tesla Model S</h3>
-              <p className="text-gray-500 mb-2">Electric Sedan, 15,000 miles</p>
-              <p className="text-xl font-bold text-green-600">$49,999</p>
-              <button className="mt-4 w-full py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition">
-                View Details
-              </button>
-            </div>
-
-            {/* Example Featured Car 2 */}
-            <div className="bg-white shadow-xl rounded-xl w-72 p-6 transition transform hover:scale-105 hover:shadow-2xl hover:bg-gray-50">
-              <Image
-                src="https://picsum.photos/200/300"
-                alt="Featured Car"
-                width={200}
-                height={300}
-                className="rounded-xl mb-4"
-              />
-              <h3 className="text-xl font-semibold mb-2 text-gray-800">2018 Honda Civic</h3>
-              <p className="text-gray-500 mb-2">Compact Sedan, 45,000 miles</p>
-              <p className="text-xl font-bold text-green-600">$18,999</p>
-              <button className="mt-4 w-full py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition">
-                View Details
-              </button>
-            </div>
-
-            {/* Example Featured Car 3 */}
-            <div className="bg-white shadow-xl rounded-xl w-72 p-6 transition transform hover:scale-105 hover:shadow-2xl hover:bg-gray-50">
-              <Image
-                src="https://picsum.photos/200/300"
-                alt="Featured Car"
-                width={200}
-                height={300}
-                className="rounded-xl mb-4"
-              />
-              <h3 className="text-xl font-semibold mb-2 text-gray-800">2022 BMW X5</h3>
-              <p className="text-gray-500 mb-2">Luxury SUV, 10,000 miles</p>
-              <p className="text-xl font-bold text-green-600">$75,000</p>
-              <button className="mt-4 w-full py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition">
-                View Details
-              </button>
-            </div>
-
-            {/* Example Featured Car 4 */}
-            <div className="bg-white shadow-xl rounded-xl w-72 p-6 transition transform hover:scale-105 hover:shadow-2xl hover:bg-gray-50">
-              <Image
-                src="https://picsum.photos/200/300"
-                alt="Featured Car"
-                width={200}
-                height={300}
-                className="rounded-xl mb-4"
-              />
-              <h3 className="text-xl font-semibold mb-2 text-gray-800">2019 Audi A4</h3>
-              <p className="text-gray-500 mb-2">Luxury Sedan, 35,000 miles</p>
-              <p className="text-xl font-bold text-green-600">$29,500</p>
-              <button className="mt-4 w-full py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition">
-                View Details
-              </button>
-            </div>
-
-            {/* Example Featured Car 5 */}
-            <div className="bg-white shadow-xl rounded-xl w-72 p-6 transition transform hover:scale-105 hover:shadow-2xl hover:bg-gray-50">
-              <Image
-                src="https://picsum.photos/200/300"
-                alt="Featured Car"
-                width={200}
-                height={300}
-                className="rounded-xl mb-4"
-              />
-              <h3 className="text-xl font-semibold mb-2 text-gray-800">2017 Ford Mustang</h3>
-              <p className="text-gray-500 mb-2">Sports Car, 55,000 miles</p>
-              <p className="text-xl font-bold text-green-600">$32,000</p>
-              <button className="mt-4 w-full py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition">
-                View Details
-              </button>
-            </div>
+            {[...Array(5)].map((_, idx) => (
+              <div
+                key={idx}
+                className="bg-white shadow-xl rounded-xl w-72 p-6 transition transform hover:scale-105 hover:shadow-2xl hover:bg-gray-50"
+              >
+                <Image
+                  src="https://picsum.photos/200/300"
+                  alt={`Featured Car ${idx + 1}`}
+                  width={200}
+                  height={300}
+                  className="rounded-xl mb-4"
+                />
+                <h3 className="text-xl font-semibold mb-2 text-gray-800">Car Title {idx + 1}</h3>
+                <p className="text-gray-500 mb-2">Car details here</p>
+                <p className="text-xl font-bold text-green-600">$Price</p>
+                <button className="mt-4 w-full py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition">
+                  View Details
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       </section>

@@ -8,6 +8,7 @@ import mysql.connector
 from dotenv import load_dotenv
 from passlib.context import CryptContext
 from datetime import datetime, date
+import decimal
 
 
 from pydantic import BaseModel, EmailStr
@@ -363,6 +364,46 @@ async def update_user_profile(user_id: int, user: UserProfileUpdateRequest):
     connection.close()
     
     return {"message": "User profile successfully updated"}
+
+
+
+
+
+class BalanceUpdateRequest(BaseModel):
+    amount: float  # Amount to add to the balance
+
+@app.put("/user/{user_id}/balance")
+async def update_user_balance(user_id: int, balance_update: BalanceUpdateRequest):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    # Fetch the current balance of the user
+    cursor.execute("SELECT balance FROM user WHERE user_ID = %s", (user_id,))
+    user = cursor.fetchone()
+
+    if not user:
+        cursor.close()
+        connection.close()
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Calculate the new balance
+    current_balance = float(user["balance"])
+    new_balance = current_balance + balance_update.amount
+
+    if new_balance < 0:
+        cursor.close()
+        connection.close()
+        raise HTTPException(status_code=400, detail="Balance cannot be negative")
+
+    # Update the user's balance
+    cursor.execute("UPDATE user SET balance = %s WHERE user_ID = %s", (new_balance, user_id))
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return {"message": "Balance updated successfully", "new_balance": new_balance}
+
 
 
 

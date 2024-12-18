@@ -1,8 +1,8 @@
 'use client';
-import {useState} from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import vehicleData from './vehicleData'; // Adjust the path if necessary
-import Navbar from '../components/Navbar'
+import Navbar from '../components/Navbar';
 
 export default function BrowseVehicles() {
     const [vehicles, setVehicles] = useState(vehicleData);
@@ -26,7 +26,7 @@ export default function BrowseVehicles() {
     const [bookmarked, setBookmarked] = useState(false);
 
     const handleFilterChange = (e) => {
-        const {name, type, value, checked} = e.target;
+        const { name, type, value, checked } = e.target;
         setFilters((prev) => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value,
@@ -77,15 +77,12 @@ export default function BrowseVehicles() {
 
     const handleOfferSubmit = (e) => {
         e.preventDefault();
-        // Handle offer submission logic here (e.g., send it to the backend or store it)
         alert(`Offer of $${offerPrice} submitted for ${selectedVehicle.manufacturer} ${selectedVehicle.model}.`);
     };
 
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-200 text-gray-800 font-sans">
-            {/* Navbar */}
-            <Navbar/>
-
+            <Navbar />
 
             {/* Filter Menu */}
             <section className="mt-20 bg-white py-6 shadow-md">
@@ -240,9 +237,7 @@ export default function BrowseVehicles() {
             {/* Vehicle Detail Modal */}
             {isModalOpen && selectedVehicle && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                    <div
-                        className="bg-white rounded-lg w-11/12 sm:w-96 p-6 sm:p-8 shadow-xl transform transition-all duration-300 ease-in-out scale-105">
-
+                    <div className="bg-white rounded-lg w-full sm:w-96 md:w-1/2 lg:w-1/3 xl:w-1/4 p-6 sm:p-8 shadow-xl transform transition-all duration-300 ease-in-out scale-105 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
                         {/* Vehicle Image */}
                         <div className="mb-6">
                             <img
@@ -266,16 +261,14 @@ export default function BrowseVehicles() {
                         {/* Vehicle Specific Info based on Type */}
                         {selectedVehicle.type === 'motorcycle' && (
                             <div className="space-y-2 mb-4">
-                                <p className="text-sm text-gray-600">Engine
-                                    Capacity: {selectedVehicle.engineCapacity} cc</p>
+                                <p className="text-sm text-gray-600">Engine Capacity: {selectedVehicle.engineCapacity} cc</p>
                                 <p className="text-sm text-gray-600">Bike Type: {selectedVehicle.bikeType}</p>
                             </div>
                         )}
 
                         {selectedVehicle.type === 'truck' && (
                             <div className="space-y-2 mb-4">
-                                <p className="text-sm text-gray-600">Cargo
-                                    Capacity: {selectedVehicle.cargoCapacity} lbs</p>
+                                <p className="text-sm text-gray-600">Cargo Capacity: {selectedVehicle.cargoCapacity} lbs</p>
                                 {selectedVehicle.hasTowingPackage && (
                                     <p className="text-sm text-gray-600">Has Towing Package</p>
                                 )}
@@ -302,7 +295,6 @@ export default function BrowseVehicles() {
 
                         {/* Action Buttons */}
                         <div className="space-y-4 mt-6">
-                            {/* Bookmark Button */}
                             <button
                                 onClick={handleBookmark}
                                 className={`w-full py-2 text-white rounded-lg font-medium transition-all duration-300 ${bookmarked ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
@@ -310,7 +302,6 @@ export default function BrowseVehicles() {
                                 {bookmarked ? 'Remove Bookmark' : 'Bookmark Vehicle'}
                             </button>
 
-                            {/* Offer Form */}
                             <form onSubmit={handleOfferSubmit} className="space-y-4">
                                 <input
                                     type="number"
@@ -339,11 +330,9 @@ export default function BrowseVehicles() {
                 </div>
             )}
 
-
-            {/* Footer */}
             <footer className="bg-gray-800 text-white py-6">
                 <div className="container mx-auto text-center">
-                    <p>&copy; 2024 CarTrade. All Rights Reserved.</p>
+                    <p>&copy; 2024 Vehicle Marketplace. All rights reserved.</p>
                 </div>
             </footer>
         </div>
