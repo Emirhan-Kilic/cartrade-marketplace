@@ -402,6 +402,74 @@ async def update_user_balance(user_id: int, balance_update: BalanceUpdateRequest
 
 
 
+@app.put("/user/{user_id}/deduct_balance_for_premium")
+async def deduct_balance_for_premium(user_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    # Fetch the current balance of the user
+    cursor.execute("SELECT balance FROM user WHERE user_ID = %s", (user_id,))
+    user = cursor.fetchone()
+
+    if not user:
+        cursor.close()
+        connection.close()
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Calculate the new balance after deduction
+    current_balance = float(user["balance"])
+    new_balance = current_balance - 150  # Deduct 150 for premium ad
+
+    if new_balance < 0:
+        cursor.close()
+        connection.close()
+        raise HTTPException(status_code=400, detail="Balance cannot be negative")
+
+    # Update the user's balance
+    cursor.execute("UPDATE user SET balance = %s WHERE user_ID = %s", (new_balance, user_id))
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return {"message": "150 TL has been deducted for the premium ad", "new_balance": new_balance}
+
+
+
+
+@app.get("/user/{user_id}/balance")
+async def get_user_balance(user_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    # Fetch the current balance of the user
+    cursor.execute("SELECT balance FROM user WHERE user_ID = %s", (user_id,))
+    user = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Return the balance
+    return {"user_id": user_id, "balance": float(user["balance"])}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class VehicleCreate(BaseModel):
     manufacturer: str
     model: str

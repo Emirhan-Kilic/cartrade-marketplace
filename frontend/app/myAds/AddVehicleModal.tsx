@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import VehicleAddedModal from "./VehicleAddedModal";
 
 interface VehicleForm {
     manufacturer: string;
@@ -41,7 +42,11 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({isOpen, onClose, onSub
         vehicleType: 'car',
     });
 
-    const handleAddVehicle = async (e: React.FormEvent) => {
+    const [showModal, setShowModal] = useState(false);
+    const [vehicleData, setVehicleData] = useState<any>(null); // Store response data
+    const userId = Number(sessionStorage.getItem("userId"));
+
+    const handleAddVehicle = async (e: React.FormEvent | React.MouseEvent) => {
         e.preventDefault();
 
         // Prepare the base vehicle data
@@ -98,13 +103,16 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({isOpen, onClose, onSub
             }
 
             const data = await response.json();
+            console.log("Vehicle added successfully:", data); // Debugging log
+            setVehicleData(data); // Store the response data
+            setShowModal(true); // Trigger the modal
             onSubmit(data); // Call onSubmit with the response data
+
         } catch (error) {
             console.error("Error adding vehicle:", error);
             // Handle any additional error feedback here
         }
     };
-
 
     const handleVehicleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newType = e.target.value as 'car' | 'motorcycle' | 'truck';
@@ -326,11 +334,12 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({isOpen, onClose, onSub
                             </div>
                         </>
                     )}
+
                     {newVehicle.vehicleType === 'truck' && (
                         <>
                             <div>
                                 <label htmlFor="cargoCapacity" className="block text-sm font-medium text-gray-600">Cargo
-                                    Capacity (kg)</label>
+                                    Capacity</label>
                                 <input
                                     type="number"
                                     id="cargoCapacity"
@@ -342,7 +351,7 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({isOpen, onClose, onSub
                             </div>
                             <div>
                                 <label htmlFor="hasTowingPackage" className="block text-sm font-medium text-gray-600">Has
-                                    Towing Package?</label>
+                                    Towing Package</label>
                                 <input
                                     type="checkbox"
                                     id="hasTowingPackage"
@@ -354,25 +363,37 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({isOpen, onClose, onSub
                         </>
                     )}
 
-                    <div className="flex space-x-4">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="flex-1 bg-red-500 text-white py-3 rounded-lg shadow-lg hover:bg-red-600 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        >
-                            Close
-                        </button>
+                    <div className="mt-6">
                         <button
                             type="submit"
-                            className="flex-1 bg-green-500 text-white py-3 rounded-lg shadow-lg hover:bg-green-600 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            className="w-full py-3 bg-blue-500 text-white rounded-md font-semibold shadow-md hover:bg-blue-600 transition"
                         >
                             Add Vehicle
                         </button>
                     </div>
-
-
                 </form>
+
+                <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                >
+                    &times;
+                </button>
             </div>
+
+
+            {showModal && vehicleData && userId && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-60">
+                    <VehicleAddedModal
+                        isOpen={showModal}
+                        onClose={() => setShowModal(false)}
+                        userId={userId} // Pass userId only if available
+                        vehicleId={vehicleData.vehicle_id} // Assuming vehicleData contains 'id'
+                    />
+                </div>
+            )}
+
+
         </div>
     );
 };
