@@ -723,6 +723,39 @@ async def get_user_vehicles(user_id: int):
         connection.close()
 
 
+@app.get("/premium-vehicles")
+async def get_premium_vehicles():
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        # Query to fetch general vehicle and ad details for only premium ads
+        cursor.execute("""
+            SELECT v.*, 
+                   a.ad_ID, a.post_date, a.expiry_date, a.is_premium, 
+                   a.views, a.status, a.owner AS ad_owner, a.associated_vehicle
+            FROM vehicles v
+            JOIN ads a ON v.vehicle_ID = a.associated_vehicle
+            WHERE a.is_premium = TRUE
+        """)
+
+        vehicles = cursor.fetchall()
+
+        if not vehicles:
+            raise HTTPException(status_code=404, detail="No premium vehicles found.")
+
+        return {"message": "Premium vehicles fetched successfully", "vehicles": vehicles}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+
+
+
 
 @app.delete("/delete_ad/{ad_id}")
 async def delete_ad(ad_id: int):
