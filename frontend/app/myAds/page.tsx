@@ -1,16 +1,15 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import vehicleData from './vehicleData'; // Adjust path if necessary
 import Navbar from '../components/Navbar';
 import VehicleDetailsModal from "./VehicleDetailsModal";
 import VehicleOffersModal from "./VehicleOffersModal";
 import AddVehicleModal from "./AddVehicleModal";
 
 export default function SellerDashboard() {
-    const [vehicles, setVehicles] = useState(vehicleData);
-    const [selectedVehicle, setSelectedVehicle] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState<string | null>(null); // Track modal type (null means no modal is open)
+    const [vehicles, setVehicles] = useState<any[]>([]); // Use 'any[]' to avoid strict typing
+    const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState<string | null>(null); // Track modal type
     const [offerPrice, setOfferPrice] = useState('');
     const [newVehicle, setNewVehicle] = useState({
         manufacturer: '',
@@ -22,12 +21,35 @@ export default function SellerDashboard() {
         vehicleType: ''
     });
 
+    // Fetch vehicles data from the API on component mount
+    useEffect(() => {
+        // Get the userId from sessionStorage
+        const userId = sessionStorage.getItem('userId');
+        if (userId) {
+            const fetchVehicles = async () => {
+                try {
+                    const response = await fetch(`http://localhost:8000/user/${userId}/vehicles`);
+                    const data = await response.json();
+                    if (response.ok && data.vehicles) {
+                        setVehicles(data.vehicles);
+                    } else {
+                        console.error('Failed to fetch vehicles', data);
+                    }
+                } catch (error) {
+                    console.error('Error fetching vehicles:', error);
+                }
+            };
+
+            fetchVehicles();
+        } else {
+            console.error('User ID not found in session storage');
+        }
+    }, []); // Empty dependency array means this runs once after the first render
+
     const mockOffers = [
         { buyerName: 'John Doe', price: 48000 },
         { buyerName: 'Jane Smith', price: 49000 }
     ];
-
-    const vehicleTypes = ['Car', 'Truck', 'Motorcycle'];
 
     // Function to open the modal
     const openModal = (vehicle: any, type: string) => {
@@ -58,13 +80,13 @@ export default function SellerDashboard() {
     };
 
     const handleDeleteListing = (vehicleId: number) => {
-        setVehicles(vehicles.filter((vehicle) => vehicle.id !== vehicleId));
+        setVehicles(vehicles.filter((vehicle) => vehicle.vehicle_ID !== vehicleId));
     };
 
     const handleAddVehicle = (e: React.FormEvent) => {
         e.preventDefault();
         const newVehicleData = {
-            id: vehicles.length + 1,
+            vehicle_ID: vehicles.length + 1,
             ...newVehicle
         };
         setVehicles([...vehicles, newVehicleData]);
@@ -94,9 +116,9 @@ export default function SellerDashboard() {
                             <p>No vehicles found.</p>
                         ) : (
                             vehicles.map((vehicle) => (
-                                <div key={vehicle.id} className="bg-white shadow-lg rounded-lg overflow-hidden">
+                                <div key={vehicle.vehicle_ID} className="bg-white shadow-lg rounded-lg overflow-hidden">
                                     <Image
-                                        src={vehicle.photo}
+                                        src={vehicle.photo || 'https://picsum.photos/400/250'} // Fallback to default image if no photo
                                         alt={`${vehicle.manufacturer} ${vehicle.model}`}
                                         width={400}
                                         height={250}
@@ -106,7 +128,6 @@ export default function SellerDashboard() {
                                         <h3 className="text-xl font-bold">{`${vehicle.manufacturer} ${vehicle.model}`}</h3>
                                         <p className="text-sm text-gray-500">{`${vehicle.city}, ${vehicle.state}`}</p>
                                         <p className="text-lg font-semibold text-blue-600">${vehicle.price.toLocaleString()}</p>
-                                        <p className="text-sm text-gray-600">Type: {vehicle.vehicleType}</p>
 
                                         <div className="flex space-x-4 mt-4">
                                             <button
@@ -125,7 +146,7 @@ export default function SellerDashboard() {
 
                                         <button
                                             className="mt-2 w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 focus:outline-none transition-all duration-200"
-                                            onClick={() => handleDeleteListing(vehicle.id)}
+                                            onClick={() => handleDeleteListing(vehicle.vehicle_ID)}
                                         >
                                             Delete Listing
                                         </button>

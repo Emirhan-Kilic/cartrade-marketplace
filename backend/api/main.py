@@ -652,3 +652,72 @@ async def add_ad(ad: AdCreate):
     finally:
         cursor.close()
         connection.close()
+
+
+
+
+@app.get("/user/{user_id}/ads")
+async def get_user_ads(user_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        # Fetch all ads for the given user
+        cursor.execute("SELECT * FROM ads WHERE owner = %s", (user_id,))
+        ads = cursor.fetchall()
+
+        if not ads:
+            raise HTTPException(status_code=404, detail="No ads found for this user")
+
+        return {"message": "Ads fetched successfully", "ads": ads}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+
+
+
+@app.get("/user/{user_id}/vehicles")
+async def get_user_vehicles(user_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        # Query to fetch vehicle details along with car, motorcycle, or truck specific information
+        cursor.execute("""
+            SELECT v.*, 
+                   c.number_of_doors, c.seating_capacity, c.transmission,
+                   m.engine_capacity, m.bike_type,
+                   t.cargo_capacity, t.has_towing_package,
+                   CASE
+                       WHEN c.vehicle_ID IS NOT NULL THEN 'car'
+                       WHEN m.vehicle_ID IS NOT NULL THEN 'motorcycle'
+                       WHEN t.vehicle_ID IS NOT NULL THEN 'truck'
+                       ELSE 'unknown'
+                   END AS vehicle_type
+            FROM vehicles v
+            LEFT JOIN car c ON v.vehicle_ID = c.vehicle_ID
+            LEFT JOIN motorcycle m ON v.vehicle_ID = m.vehicle_ID
+            LEFT JOIN truck t ON v.vehicle_ID = t.vehicle_ID
+            JOIN ads a ON v.vehicle_ID = a.associated_vehicle
+            WHERE a.owner = %s
+        """, (user_id,))
+
+        vehicles = cursor.fetchall()
+
+        if not vehicles:
+            raise HTTPException(status_code=404, detail="No vehicles found for this user")
+
+        return {"message": "Vehicles fetched successfully", "vehicles": vehicles}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
