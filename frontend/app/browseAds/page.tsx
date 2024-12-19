@@ -1,11 +1,11 @@
 'use client';
-import { useState } from 'react';
+import {useState, useEffect} from 'react';
 import Image from 'next/image';
-import vehicleData from './vehicleData'; // Adjust the path if necessary
 import Navbar from '../components/Navbar';
+import VehicleDetailModal from './VehicleDetailModal';
 
 export default function BrowseVehicles() {
-    const [vehicles, setVehicles] = useState(vehicleData);
+    const [vehicles, setVehicles] = useState([]);
     const [filters, setFilters] = useState({
         type: '',
         manufacturer: '',
@@ -25,8 +25,28 @@ export default function BrowseVehicles() {
     const [offerPrice, setOfferPrice] = useState('');
     const [bookmarked, setBookmarked] = useState(false);
 
+    const fetchAds = async () => {
+        const userId = sessionStorage.getItem('userId');
+        if (!userId) return;
+        try {
+            const response = await fetch(`http://localhost:8000/user/${userId}/other-ads`);
+            if (response.ok) {
+                const data = await response.json();
+                setVehicles(data.ads || []);
+            } else {
+                console.error('Failed to fetch ads');
+            }
+        } catch (error) {
+            console.error('Error fetching ads:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchAds();
+    }, []);
+
     const handleFilterChange = (e) => {
-        const { name, type, value, checked } = e.target;
+        const {name, type, value, checked} = e.target;
         setFilters((prev) => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value,
@@ -35,7 +55,7 @@ export default function BrowseVehicles() {
 
     const filteredVehicles = vehicles.filter((vehicle) => {
         return (
-            (filters.type ? vehicle.type === filters.type : true) &&
+            (filters.type ? vehicle.vehicle_type === filters.type : true) &&
             (filters.manufacturer ? vehicle.manufacturer.includes(filters.manufacturer) : true) &&
             (filters.minPrice ? vehicle.price >= Number(filters.minPrice) : true) &&
             (filters.maxPrice ? vehicle.price <= Number(filters.maxPrice) : true) &&
@@ -43,14 +63,14 @@ export default function BrowseVehicles() {
             (filters.maxYear ? vehicle.year <= Number(filters.maxYear) : true) &&
             (filters.condition ? vehicle.condition === filters.condition : true) &&
             (filters.engineCapacity
-                ? vehicle.engineCapacity && vehicle.engineCapacity >= Number(filters.engineCapacity)
+                ? vehicle.engine_capacity && vehicle.engine_capacity >= Number(filters.engineCapacity)
                 : true) &&
-            (filters.bikeType ? vehicle.bikeType === filters.bikeType : true) &&
+            (filters.bikeType ? vehicle.bike_type === filters.bikeType : true) &&
             (filters.cargoCapacity
-                ? vehicle.cargoCapacity && vehicle.cargoCapacity >= Number(filters.cargoCapacity)
+                ? vehicle.cargo_capacity && vehicle.cargo_capacity >= Number(filters.cargoCapacity)
                 : true) &&
             (filters.hasTowingPackage
-                ? vehicle.hasTowingPackage === filters.hasTowingPackage
+                ? vehicle.has_towing_package === filters.hasTowingPackage
                 : true)
         );
     });
@@ -82,7 +102,7 @@ export default function BrowseVehicles() {
 
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-200 text-gray-800 font-sans">
-            <Navbar />
+            <Navbar/>
 
             {/* Filter Menu */}
             <section className="mt-20 bg-white py-6 shadow-md">
@@ -210,9 +230,9 @@ export default function BrowseVehicles() {
             <section className="py-10">
                 <div className="container mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-6">
                     {filteredVehicles.map((vehicle) => (
-                        <div key={vehicle.id} className="bg-white shadow-lg rounded-lg overflow-hidden">
+                        <div key={vehicle.vehicle_ID} className="bg-white shadow-lg rounded-lg overflow-hidden">
                             <Image
-                                src={vehicle.photo}
+                                src={vehicle.photo || 'https://picsum.photos/400/250'}
                                 alt={`${vehicle.manufacturer} ${vehicle.model}`}
                                 width={400}
                                 height={250}
@@ -235,100 +255,16 @@ export default function BrowseVehicles() {
             </section>
 
             {/* Vehicle Detail Modal */}
-            {isModalOpen && selectedVehicle && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                    <div className="bg-white rounded-lg w-full sm:w-96 md:w-1/2 lg:w-1/3 xl:w-1/4 p-6 sm:p-8 shadow-xl transform transition-all duration-300 ease-in-out scale-105 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
-                        {/* Vehicle Image */}
-                        <div className="mb-6">
-                            <img
-                                src={selectedVehicle.photo}
-                                alt={`${selectedVehicle.manufacturer} ${selectedVehicle.model}`}
-                                className="w-full h-56 sm:h-72 object-cover rounded-lg shadow-md"
-                            />
-                        </div>
-
-                        {/* Vehicle Basic Information */}
-                        <div className="space-y-2 mb-4">
-                            <h3 className="text-2xl font-semibold text-gray-800">{`${selectedVehicle.manufacturer} ${selectedVehicle.model}`}</h3>
-                            <p className="text-xl font-bold text-blue-600">${selectedVehicle.price.toLocaleString()}</p>
-
-                            <p className="text-sm text-gray-600">Year: {selectedVehicle.year}</p>
-                            <p className="text-sm text-gray-600">Condition: {selectedVehicle.condition}</p>
-                            <p className="text-sm text-gray-600">Mileage: {selectedVehicle.mileage.toLocaleString()} miles</p>
-                            <p className="text-sm text-gray-600">Location: {selectedVehicle.city}, {selectedVehicle.state}</p>
-                        </div>
-
-                        {/* Vehicle Specific Info based on Type */}
-                        {selectedVehicle.type === 'motorcycle' && (
-                            <div className="space-y-2 mb-4">
-                                <p className="text-sm text-gray-600">Engine Capacity: {selectedVehicle.engineCapacity} cc</p>
-                                <p className="text-sm text-gray-600">Bike Type: {selectedVehicle.bikeType}</p>
-                            </div>
-                        )}
-
-                        {selectedVehicle.type === 'truck' && (
-                            <div className="space-y-2 mb-4">
-                                <p className="text-sm text-gray-600">Cargo Capacity: {selectedVehicle.cargoCapacity} lbs</p>
-                                {selectedVehicle.hasTowingPackage && (
-                                    <p className="text-sm text-gray-600">Has Towing Package</p>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Seller Info */}
-                        <div className="space-y-4 mt-6 border-t pt-6">
-                            <h4 className="text-lg font-semibold text-gray-800">Seller Info</h4>
-                            <div className="flex items-center space-x-4">
-                                <img
-                                    src="https://picsum.photos/50" // Mock profile image URL
-                                    alt="Seller Profile"
-                                    className="w-12 h-12 object-cover rounded-full shadow-sm"
-                                />
-                                <div>
-                                    <p className="text-sm font-medium text-gray-800">John Doe</p>
-                                    <p className="text-xs text-gray-600">Rating: 4.8/5</p>
-                                    <p className="text-xs text-gray-600">Email: johndoe@example.com</p>
-                                    <p className="text-xs text-gray-600">Phone: (123) 456-7890</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="space-y-4 mt-6">
-                            <button
-                                onClick={handleBookmark}
-                                className={`w-full py-2 text-white rounded-lg font-medium transition-all duration-300 ${bookmarked ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
-                            >
-                                {bookmarked ? 'Remove Bookmark' : 'Bookmark Vehicle'}
-                            </button>
-
-                            <form onSubmit={handleOfferSubmit} className="space-y-4">
-                                <input
-                                    type="number"
-                                    value={offerPrice}
-                                    onChange={handleOfferChange}
-                                    placeholder="Enter your offer price"
-                                    className="w-full p-4 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
-                                />
-                                <button
-                                    type="submit"
-                                    className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-300"
-                                >
-                                    Submit Offer
-                                </button>
-                            </form>
-                        </div>
-
-                        {/* Close Button */}
-                        <button
-                            onClick={closeModal}
-                            className="mt-4 w-full py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-all duration-300"
-                        >
-                            Close
-                        </button>
-                    </div>
-                </div>
-            )}
+            <VehicleDetailModal
+                selectedVehicle={selectedVehicle}
+                isModalOpen={isModalOpen}
+                closeModal={closeModal}
+                offerPrice={offerPrice}
+                handleOfferChange={handleOfferChange}
+                handleOfferSubmit={handleOfferSubmit}
+                handleBookmark={handleBookmark}
+                bookmarked={bookmarked}
+            />
 
             <footer className="bg-gray-800 text-white py-6">
                 <div className="container mx-auto text-center">

@@ -753,10 +753,6 @@ async def get_premium_vehicles():
         connection.close()
 
 
-
-
-
-
 @app.delete("/delete_ad/{ad_id}")
 async def delete_ad(ad_id: int):
     connection = get_db_connection()
@@ -790,3 +786,55 @@ async def delete_ad(ad_id: int):
     finally:
         cursor.close()
         connection.close()
+
+
+
+
+
+@app.get("/user/{user_id}/other-ads")
+async def get_other_user_ads(user_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        # Query to fetch vehicle, ad, and owner details excluding the user's own ads
+        cursor.execute("""
+            SELECT v.*, 
+                   c.number_of_doors, c.seating_capacity, c.transmission,
+                   m.engine_capacity, m.bike_type,
+                   t.cargo_capacity, t.has_towing_package,
+                   CASE
+                       WHEN c.vehicle_ID IS NOT NULL THEN 'car'
+                       WHEN m.vehicle_ID IS NOT NULL THEN 'motorcycle'
+                       WHEN t.vehicle_ID IS NOT NULL THEN 'truck'
+                       ELSE 'unknown'
+                   END AS vehicle_type,
+                   a.ad_ID, a.post_date, a.expiry_date, a.is_premium, 
+                   a.views, a.status, a.owner AS ad_owner, a.associated_vehicle,
+                   u.user_ID, u.first_name, u.last_name, u.email, 
+                   u.phone_number, u.address, u.rating, u.join_date
+            FROM vehicles v
+            LEFT JOIN car c ON v.vehicle_ID = c.vehicle_ID
+            LEFT JOIN motorcycle m ON v.vehicle_ID = m.vehicle_ID
+            LEFT JOIN truck t ON v.vehicle_ID = t.vehicle_ID
+            JOIN ads a ON v.vehicle_ID = a.associated_vehicle
+            JOIN user u ON a.owner = u.user_ID
+            WHERE a.owner != %s
+        """, (user_id,))
+
+        other_ads = cursor.fetchall()
+
+        if not other_ads:
+            raise HTTPException(status_code=404, detail="No ads found for other users")
+
+        return {"message": "Ads from other users fetched successfully", "ads": other_ads}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+
+

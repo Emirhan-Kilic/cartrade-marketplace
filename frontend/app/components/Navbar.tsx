@@ -8,10 +8,10 @@ export default function Navbar() {
 
     const handleLogout = () => {
         // Clear user session data
-        localStorage.removeItem('userId');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('savedEmail');
-        localStorage.removeItem('savedPassword');
+        sessionStorage.removeItem('userId');
+        sessionStorage.removeItem('userEmail');
+        sessionStorage.removeItem('savedEmail');
+        sessionStorage.removeItem('savedPassword');
 
         console.log('User logged out successfully.');
 

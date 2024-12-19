@@ -1,9 +1,9 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import {useState, useEffect} from 'react';
+import {useRouter} from 'next/navigation';
 import Image from 'next/image';
 import Navbar from '../components/Navbar';
-import { FaAd, FaHandshake, FaHeart, FaStar } from 'react-icons/fa';
+import {FaAd, FaHandshake, FaHeart, FaStar, FaClipboardList} from 'react-icons/fa';
 import AddBalanceModal from './AddBalanceModal'; // Import the modal
 
 interface ProfileData {
@@ -80,7 +80,7 @@ export default function ProfilePage() {
     }, [router]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
+        const {name, value} = e.target;
         setEditedProfileData((prevData) => ({
             ...prevData,
             [name]: value,
@@ -116,7 +116,7 @@ export default function ProfilePage() {
 
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/profile/${userId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(profileDataToUpdate),
             });
 
@@ -148,12 +148,13 @@ export default function ProfilePage() {
 
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-200 text-gray-800 font-sans">
-            <Navbar />
+            <Navbar/>
 
             <section className="mt-20">
                 <div className="container mx-auto px-6 mt-4">
                     <div className="bg-white shadow-2xl rounded-lg p-10">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-6 sm:space-y-0 sm:space-x-6">
+                        <div
+                            className="flex flex-col sm:flex-row items-start sm:items-center space-y-6 sm:space-y-0 sm:space-x-6">
                             <Image
                                 src={profileData.profile_picture}
                                 alt="Profile Picture"
@@ -255,25 +256,31 @@ export default function ProfilePage() {
                                     className="flex items-center bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition"
                                     onClick={() => window.location.href = '/myAds'}
                                 >
-                                    <FaAd className="mr-2" /> My Ads
+                                    <FaAd className="mr-2"/> My Ads
+                                </button>
+                                <button
+                                    className="flex items-center bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition"
+                                    onClick={() => window.location.href = '/myInspections'}
+                                >
+                                    <FaClipboardList className="mr-2"/> My Inspections
                                 </button>
                                 <button
                                     className="flex items-center bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition"
                                     onClick={() => window.location.href = '/myOffers'}
                                 >
-                                    <FaHandshake className="mr-2" /> My Offers
+                                    <FaHandshake className="mr-2"/> My Offers
                                 </button>
                                 <button
                                     className="flex items-center bg-pink-600 text-white py-2 px-4 rounded-lg hover:bg-pink-700 transition"
                                     onClick={() => window.location.href = '/wishlisted-ads'}
                                 >
-                                    <FaHeart className="mr-2" /> Wishlisted Ads
+                                    <FaHeart className="mr-2"/> Wishlisted Ads
                                 </button>
                                 <button
                                     className="flex items-center bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700 transition"
                                     onClick={() => window.location.href = '/my-reviews'}
                                 >
-                                    <FaStar className="mr-2" /> My Reviews
+                                    <FaStar className="mr-2"/> My Reviews
                                 </button>
 
                                 {/* Add Balance Button */}
