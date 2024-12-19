@@ -916,3 +916,49 @@ async def check_if_bookmarked(user_id: int, bookmarked_ad: int):
     finally:
         cursor.close()
         connection.close()
+
+
+@app.get("/user/{user_id}/wishlist")
+async def get_user_wishlist(user_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        # Query to fetch detailed information for all wishlist items of the user
+        cursor.execute("""
+            SELECT v.*, 
+                   c.number_of_doors, c.seating_capacity, c.transmission,
+                   m.engine_capacity, m.bike_type,
+                   t.cargo_capacity, t.has_towing_package,
+                   CASE
+                       WHEN c.vehicle_ID IS NOT NULL THEN 'car'
+                       WHEN m.vehicle_ID IS NOT NULL THEN 'motorcycle'
+                       WHEN t.vehicle_ID IS NOT NULL THEN 'truck'
+                       ELSE 'unknown'
+                   END AS vehicle_type,
+                   a.ad_ID, a.post_date, a.expiry_date, a.is_premium, 
+                   a.views, a.status, a.owner AS ad_owner, a.associated_vehicle,
+                   u.user_ID, u.first_name, u.last_name, u.email, 
+                   u.phone_number, u.address, u.rating, u.join_date
+            FROM wishlist w
+            JOIN ads a ON w.bookmarked_ad = a.ad_ID
+            JOIN vehicles v ON a.associated_vehicle = v.vehicle_ID
+            LEFT JOIN car c ON v.vehicle_ID = c.vehicle_ID
+            LEFT JOIN motorcycle m ON v.vehicle_ID = m.vehicle_ID
+            LEFT JOIN truck t ON v.vehicle_ID = t.vehicle_ID
+            JOIN user u ON a.owner = u.user_ID
+            WHERE w.user_ID = %s
+        """, (user_id,))
+
+        wishlist_items = cursor.fetchall()
+
+        if not wishlist_items:
+            return {"message": "No items in wishlist"}
+
+        return {"message": "Wishlist items fetched successfully", "wishlist": wishlist_items}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()

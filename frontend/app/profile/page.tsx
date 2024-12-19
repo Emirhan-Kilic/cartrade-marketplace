@@ -272,7 +272,7 @@ export default function ProfilePage() {
                                 </button>
                                 <button
                                     className="flex items-center bg-pink-600 text-white py-2 px-4 rounded-lg hover:bg-pink-700 transition"
-                                    onClick={() => window.location.href = '/wishlisted-ads'}
+                                    onClick={() => window.location.href = '/myWishlist'}
                                 >
                                     <FaHeart className="mr-2"/> Wishlisted Ads
                                 </button>
