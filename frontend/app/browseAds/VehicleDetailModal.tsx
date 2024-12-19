@@ -43,22 +43,23 @@ interface Props {
 }
 
 const VehicleDetailModal: React.FC<Props> = ({
-    selectedVehicle,
-    isModalOpen,
-    closeModal,
-    offerPrice,
-    handleOfferChange,
-    handleOfferSubmit,
-    handleBookmark,
-    bookmarked
-}) => {
+                                                 selectedVehicle,
+                                                 isModalOpen,
+                                                 closeModal,
+                                                 offerPrice,
+                                                 handleOfferChange,
+                                                 handleOfferSubmit,
+                                                 handleBookmark,
+                                                 bookmarked
+                                             }) => {
     if (!selectedVehicle) return null;
 
     return (
         <div
             className={`fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 ${!isModalOpen ? 'hidden' : ''}`}
         >
-            <div className="bg-white rounded-lg w-full sm:w-96 md:w-1/2 lg:w-1/3 xl:w-1/4 p-6 sm:p-8 shadow-xl transform transition-all duration-300 ease-in-out scale-105 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+            <div
+                className="bg-white rounded-lg w-full sm:w-96 md:w-1/2 lg:w-1/3 xl:w-1/4 p-6 sm:p-8 shadow-xl transform transition-all duration-300 ease-in-out scale-105 max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
                 {/* Vehicle Image */}
                 <div className="mb-6">
                     <img
@@ -84,10 +85,12 @@ const VehicleDetailModal: React.FC<Props> = ({
                     {selectedVehicle.vehicle_type === 'car' && (
                         <>
                             {selectedVehicle.number_of_doors && (
-                                <p className="text-sm text-gray-600">Number of Doors: {selectedVehicle.number_of_doors}</p>
+                                <p className="text-sm text-gray-600">Number of
+                                    Doors: {selectedVehicle.number_of_doors}</p>
                             )}
                             {selectedVehicle.seating_capacity && (
-                                <p className="text-sm text-gray-600">Seating Capacity: {selectedVehicle.seating_capacity}</p>
+                                <p className="text-sm text-gray-600">Seating
+                                    Capacity: {selectedVehicle.seating_capacity}</p>
                             )}
                             {selectedVehicle.transmission && (
                                 <p className="text-sm text-gray-600">Transmission: {selectedVehicle.transmission}</p>
@@ -98,7 +101,8 @@ const VehicleDetailModal: React.FC<Props> = ({
                     {selectedVehicle.vehicle_type === 'motorcycle' && (
                         <>
                             {selectedVehicle.engine_capacity && (
-                                <p className="text-sm text-gray-600">Engine Capacity: {selectedVehicle.engine_capacity} cc</p>
+                                <p className="text-sm text-gray-600">Engine
+                                    Capacity: {selectedVehicle.engine_capacity} cc</p>
                             )}
                             {selectedVehicle.bike_type && (
                                 <p className="text-sm text-gray-600">Bike Type: {selectedVehicle.bike_type}</p>
@@ -109,7 +113,8 @@ const VehicleDetailModal: React.FC<Props> = ({
                     {selectedVehicle.vehicle_type === 'truck' && (
                         <>
                             {selectedVehicle.cargo_capacity && (
-                                <p className="text-sm text-gray-600">Cargo Capacity: {selectedVehicle.cargo_capacity} lbs</p>
+                                <p className="text-sm text-gray-600">Cargo
+                                    Capacity: {selectedVehicle.cargo_capacity} lbs</p>
                             )}
                             {selectedVehicle.has_towing_package && (
                                 <p className="text-sm text-gray-600">Has Towing Package</p>
@@ -175,7 +180,7 @@ const VehicleDetailModal: React.FC<Props> = ({
                 {/* Close Button */}
                 <button
                     onClick={closeModal}
-                    className="mt-4 w-full py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-all duration-300"
+                    className="mt-4 w-full py-2 text-white bg-red-500 rounded-lg hover:bg-red-600 transition-all duration-300"
                 >
                     Close
                 </button>
