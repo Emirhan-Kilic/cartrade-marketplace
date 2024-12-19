@@ -837,4 +837,82 @@ async def get_other_user_ads(user_id: int):
 
 
 
+@app.post("/user/{user_id}/wishlist/{bookmarked_ad}")
+async def add_to_wishlist(user_id: int, bookmarked_ad: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
 
+    try:
+        # Check if the ad exists
+        cursor.execute("SELECT * FROM ads WHERE ad_ID = %s", (bookmarked_ad,))
+        ad = cursor.fetchone()
+
+        if not ad:
+            raise HTTPException(status_code=404, detail="Ad not found")
+
+        # Insert into wishlist table
+        cursor.execute("""
+            INSERT INTO wishlist (user_ID, bookmarked_ad)
+            VALUES (%s, %s)
+        """, (user_id, bookmarked_ad))
+
+        connection.commit()
+
+        return {"message": "Ad successfully added to wishlist"}
+
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.delete("/user/{user_id}/wishlist/{bookmarked_ad}")
+async def remove_from_wishlist(user_id: int, bookmarked_ad: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Check if the ad exists in the wishlist for the given user
+        cursor.execute("SELECT * FROM wishlist WHERE user_ID = %s AND bookmarked_ad = %s", (user_id, bookmarked_ad))
+        wishlist_item = cursor.fetchone()
+
+        if not wishlist_item:
+            raise HTTPException(status_code=404, detail="Ad not found in wishlist")
+
+        # Delete from wishlist table
+        cursor.execute("DELETE FROM wishlist WHERE user_ID = %s AND bookmarked_ad = %s", (user_id, bookmarked_ad))
+
+        connection.commit()
+
+        return {"message": "Ad successfully removed from wishlist"}
+
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.get("/user/{user_id}/wishlist/{bookmarked_ad}")
+async def check_if_bookmarked(user_id: int, bookmarked_ad: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Check if the ad exists in the wishlist for the given user
+        cursor.execute("SELECT * FROM wishlist WHERE user_ID = %s AND bookmarked_ad = %s", (user_id, bookmarked_ad))
+        wishlist_item = cursor.fetchone()
+
+        if wishlist_item:
+            return {"message": "Ad is in the wishlist", "isBookmarked": True}
+        else:
+            return {"message": "Ad is not in the wishlist", "isBookmarked": False}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()

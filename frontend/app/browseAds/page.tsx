@@ -75,10 +75,31 @@ export default function BrowseVehicles() {
         );
     });
 
-    const openModal = (vehicle) => {
+    const openModal = async (vehicle) => {
         setSelectedVehicle(vehicle);
         setIsModalOpen(true);
+
+        const userId = sessionStorage.getItem('userId');
+        if (!userId || !vehicle) return;
+
+        const bookmarkedAd = vehicle.ad_ID; // Assuming selectedVehicle has ad_ID
+        const url = `http://localhost:8000/user/${userId}/wishlist/${bookmarkedAd}`;
+
+        try {
+            // Check if the ad is already in the wishlist
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (response.ok) {
+                setBookmarked(data.isBookmarked); // Update the bookmarked state based on the response
+            } else {
+                console.error('Failed to check wishlist status');
+            }
+        } catch (error) {
+            console.error('Error fetching wishlist status:', error);
+        }
     };
+
 
     const closeModal = () => {
         setIsModalOpen(false);
@@ -91,9 +112,56 @@ export default function BrowseVehicles() {
         setOfferPrice(e.target.value);
     };
 
-    const handleBookmark = () => {
-        setBookmarked(!bookmarked);
+    const handleBookmark = async () => {
+        const userId = sessionStorage.getItem('userId');
+        if (!userId || !selectedVehicle) return;
+
+        const bookmarkedAd = selectedVehicle.ad_ID; // Assuming selectedVehicle has ad_ID
+        const url = `http://localhost:8000/user/${userId}/wishlist/${bookmarkedAd}`;
+
+        try {
+            // First, check if the ad is already in the wishlist
+            const checkResponse = await fetch(url);
+            const data = await checkResponse.json();
+
+            if (checkResponse.ok) {
+                if (data.isBookmarked) {
+                    // If it's already bookmarked, perform the delete operation
+                    const deleteResponse = await fetch(url, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    });
+
+                    if (deleteResponse.ok) {
+                        setBookmarked(false); // Toggle bookmark state
+                    } else {
+                        console.error('Failed to remove from wishlist');
+                    }
+                } else {
+                    // If it's not bookmarked, perform the add operation
+                    const postResponse = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    });
+
+                    if (postResponse.ok) {
+                        setBookmarked(true); // Toggle bookmark state
+                    } else {
+                        console.error('Failed to add to wishlist');
+                    }
+                }
+            } else {
+                console.error('Failed to check wishlist status');
+            }
+        } catch (error) {
+            console.error('Error updating wishlist:', error);
+        }
     };
+
 
     const handleOfferSubmit = (e) => {
         e.preventDefault();
@@ -265,6 +333,7 @@ export default function BrowseVehicles() {
                 handleBookmark={handleBookmark}
                 bookmarked={bookmarked}
             />
+
 
             <footer className="bg-gray-800 text-white py-6">
                 <div className="container mx-auto text-center">
