@@ -411,6 +411,18 @@ async def update_user_balance(user_id: int, balance_update: BalanceUpdateRequest
     return {"message": "Balance updated successfully", "new_balance": new_balance}
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 @app.put("/user/{user_id}/deduct_balance_for_premium")
 async def deduct_balance_for_premium(user_id: int):
     connection = get_db_connection()
@@ -823,6 +835,67 @@ async def get_other_user_ads(user_id: int):
     finally:
         cursor.close()
         connection.close()
+
+
+
+
+@app.get("/ad/{ad_id}/owner")
+async def get_ad_owner(ad_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        # Query to get the owner ID of the ad
+        cursor.execute("SELECT owner FROM ads WHERE ad_ID = %s", (ad_id,))
+        result = cursor.fetchone()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="Ad not found")
+
+        owner_id = result["owner"]
+
+        return {"message": "Owner ID fetched successfully", "owner_id": owner_id}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+
+@app.put("/ad/{ad_id}/mark-sold")
+async def mark_ad_as_sold(ad_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        # Query to check if the ad exists and fetch its current status
+        cursor.execute("SELECT status FROM ads WHERE ad_ID = %s", (ad_id,))
+        result = cursor.fetchone()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="Ad not found")
+
+        current_status = result["status"]
+
+        # Ensure the ad is not already sold
+        if current_status == "Sold":
+            raise HTTPException(status_code=400, detail="Ad is already marked as sold")
+
+        # Update the status of the ad to 'Sold'
+        cursor.execute("UPDATE ads SET status = 'Sold' WHERE ad_ID = %s", (ad_id,))
+        connection.commit()
+
+        return {"message": "Ad status updated to 'Sold' successfully"}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
 
 
 """ ************************************** Wishlist Backend ************************************************ """

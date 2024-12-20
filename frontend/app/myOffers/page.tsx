@@ -120,45 +120,96 @@ export default function MyOffersPage() {
             return;
         }
 
-        // Use the counter offer price if available, otherwise use the original offer price
         const paymentPrice = selectedOffer.counter_offer_price || selectedOffer.offer_price;
 
         if (userBalance < paymentPrice) {
             alert('Insufficient balance for this payment.');
             return;
         }
+
         alert(`Payment of $${paymentPrice} for offer from ${selectedOffer.buyerName} has been processed with ${paymentMethod}.`);
 
-        console.log(selectedOffer)
-        // Prepare the URL with query parameters for transaction data
         const transactionUrl = new URL('http://localhost:8000/create_transaction/');
         transactionUrl.searchParams.append('price', paymentPrice);
         transactionUrl.searchParams.append('payment_method', paymentMethod);
         transactionUrl.searchParams.append('transaction_type', 'purchase');
         transactionUrl.searchParams.append('paid_by', parseInt(userId, 10));
-        transactionUrl.searchParams.append('belonged_ad', selectedOffer.ad_ID); // Add belonged_ad (ad_id)
+        transactionUrl.searchParams.append('belonged_ad', selectedOffer.ad_ID);
 
-        console.log(transactionUrl.toString()); // This will show the URL being sent
-
-        // Send payment data using GET request with query parameters
         try {
-            const response = await fetch(transactionUrl.toString(), {
+            const transactionResponse = await fetch(transactionUrl.toString(), {
                 method: 'POST',
                 headers: {
                     'accept': 'application/json',
                 },
-                body: '', // No body content as the data is sent in the URL
             });
 
-            const data = await response.json();
-            if (data.message === 'Transaction created successfully') {
-                closePaymentModal();
-                alert('Transaction successful!');
+            const transactionData = await transactionResponse.json();
+            if (transactionData.message === 'Transaction created successfully') {
+                const balanceUpdate = {amount: -paymentPrice};
+
+                const balanceResponse = await fetch(`http://localhost:8000/user/${userId}/balance`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'accept': 'application/json',
+                    },
+                    body: JSON.stringify(balanceUpdate),
+                });
+
+                const balanceData = await balanceResponse.json();
+                if (balanceData.message === 'Balance updated successfully') {
+                    const ownerResponse = await fetch(`http://localhost:8000/ad/${selectedOffer.ad_ID}/owner`, {
+                        method: 'GET',
+                        headers: {
+                            'accept': 'application/json',
+                        },
+                    });
+
+                    const ownerData = await ownerResponse.json();
+                    if (ownerData.message === 'Owner ID fetched successfully') {
+                        const ownerBalanceUpdate = {amount: paymentPrice};
+
+                        const ownerBalanceResponse = await fetch(`http://localhost:8000/user/${ownerData.owner_id}/balance`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'accept': 'application/json',
+                            },
+                            body: JSON.stringify(ownerBalanceUpdate),
+                        });
+
+                        const ownerBalanceData = await ownerBalanceResponse.json();
+                        if (ownerBalanceData.message === 'Balance updated successfully') {
+                            // Mark the ad as sold
+                            const markSoldResponse = await fetch(`http://localhost:8000/ad/${selectedOffer.ad_ID}/mark-sold`, {
+                                method: 'PUT',
+                                headers: {
+                                    'accept': 'application/json',
+                                },
+                            });
+
+                            const markSoldData = await markSoldResponse.json();
+                            if (markSoldData.message === 'Ad status updated to \'Sold\' successfully') {
+                                closePaymentModal();
+                                alert('Transaction successful! Buyer balance deducted, seller credited, and ad marked as sold.');
+                            } else {
+                                alert('Error marking ad as sold: ' + markSoldData.detail);
+                            }
+                        } else {
+                            alert('Error crediting balance to seller: ' + ownerBalanceData.detail);
+                        }
+                    } else {
+                        alert('Error fetching ad owner: ' + ownerData.detail);
+                    }
+                } else {
+                    alert('Error deducting buyer balance: ' + balanceData.detail);
+                }
             } else {
-                alert('Error processing transaction: ' + data.detail);
+                alert('Error processing transaction: ' + transactionData.detail);
             }
         } catch (error) {
-            console.error('Error creating transaction:', error);
+            console.error('Error during payment process:', error);
         }
     };
 
@@ -304,7 +355,7 @@ export default function MyOffersPage() {
                                                     className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-semibold cursor-not-allowed"
                                                     disabled
                                                 >
-                                                    Transaction Created
+                                                    Transaction Made
                                                 </button>
                                             )}
 
