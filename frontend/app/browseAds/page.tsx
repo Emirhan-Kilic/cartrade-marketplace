@@ -55,6 +55,7 @@ export default function BrowseVehicles() {
 
     const filteredVehicles = vehicles.filter((vehicle) => {
         return (
+            vehicle.status === "Active" &&
             (filters.type ? vehicle.vehicle_type === filters.type : true) &&
             (filters.manufacturer ? vehicle.manufacturer.includes(filters.manufacturer) : true) &&
             (filters.minPrice ? vehicle.price >= Number(filters.minPrice) : true) &&
