@@ -278,7 +278,7 @@ export default function ProfilePage() {
                                 </button>
                                 <button
                                     className="flex items-center bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700 transition"
-                                    onClick={() => window.location.href = '/my-reviews'}
+                                    onClick={() => window.location.href = '/myReviews'}
                                 >
                                     <FaStar className="mr-2"/> My Reviews
                                 </button>

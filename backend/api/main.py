@@ -1488,3 +1488,43 @@ async def create_review(review: ReviewCreateRequest):
         cursor.close()
         connection.close()
 
+
+@app.get("/user_reviews/{user_id}")
+async def get_user_reviews(user_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)  # Use dictionary for easier column name access
+
+    try:
+        # Fetch sent reviews (reviews where user is the reviewer)
+        cursor.execute("""
+            SELECT review_ID AS review_id, rating, comment, review_date, reviewer, evaluated_user
+            FROM reviews
+            WHERE reviewer = %s
+        """, (user_id,))
+        sent_reviews = cursor.fetchall()
+
+        # Fetch received reviews (reviews where user is the evaluated_user)
+        cursor.execute("""
+            SELECT review_ID AS review_id, rating, comment, review_date, reviewer, evaluated_user
+            FROM reviews
+            WHERE evaluated_user = %s
+        """, (user_id,))
+        received_reviews = cursor.fetchall()
+
+        # Combine the results
+        all_reviews = {
+            "sent_reviews": sent_reviews,
+            "received_reviews": received_reviews
+        }
+
+        # If no reviews found
+        if not sent_reviews and not received_reviews:
+            raise HTTPException(status_code=404, detail="No reviews found for the user.")
+
+        return all_reviews
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
