@@ -9,6 +9,7 @@ export default function MyOffersPage() {
     const [selectedOffer, setSelectedOffer] = useState(null);
     const [userId, setUserId] = useState<string | null>(null); // Define userId state
     const [userBalance, setUserBalance] = useState(0); // State for user's balance
+    const [transactionsStatus, setTransactionsStatus] = useState<{ [key: number]: boolean }>({});
 
     // Retrieve userId from sessionStorage
     useEffect(() => {
@@ -41,6 +42,29 @@ export default function MyOffersPage() {
             console.error('User ID not found in sessionStorage');
         }
     }, [userId]);
+
+    useEffect(() => {
+        const checkTransactions = async () => {
+            if (offers.length > 0) {
+                try {
+                    const status: { [key: number]: boolean } = {};
+
+                    for (const offer of offers) {
+                        const response = await fetch(`http://localhost:8000/check_existing_transaction/${offer.ad_ID}`);
+                        const data = await response.json();
+                        status[offer.offer_ID] = data.transaction_exists;
+                    }
+
+                    setTransactionsStatus(status); // Set the transaction status for each offer
+                } catch (error) {
+                    console.error('Error checking for existing transactions:', error);
+                }
+            }
+        };
+
+        checkTransactions();
+    }, [offers]); // Run when the offers list changes
+
 
     // Fetch user's balance when payment modal is opened
     useEffect(() => {
@@ -128,8 +152,6 @@ export default function MyOffersPage() {
 
             const data = await response.json();
             if (data.message === 'Transaction created successfully') {
-                // Remove paid offer from the list
-                setOffers(offers.filter((offer) => offer.offer_ID !== selectedOffer.offer_ID));
                 closePaymentModal();
                 alert('Transaction successful!');
             } else {
@@ -269,7 +291,7 @@ export default function MyOffersPage() {
 
                                         </div>
                                         <div className="mt-6 flex gap-4">
-                                            {offer.offer_status === 'accepted' && (
+                                            {offer.offer_status === 'accepted' && !transactionsStatus[offer.offer_ID] && (
                                                 <button
                                                     className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all duration-200"
                                                     onClick={() => openPaymentModal(offer)}
@@ -277,6 +299,15 @@ export default function MyOffersPage() {
                                                     Make Payment
                                                 </button>
                                             )}
+                                            {offer.offer_status === 'accepted' && transactionsStatus[offer.offer_ID] && (
+                                                <button
+                                                    className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-semibold cursor-not-allowed"
+                                                    disabled
+                                                >
+                                                    Transaction Created
+                                                </button>
+                                            )}
+
                                         </div>
 
 
