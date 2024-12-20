@@ -1441,3 +1441,50 @@ async def get_user_transactions(user_id: int):
         connection.close()
 
 
+""" ************************************** Review Backend ************************************************ """
+
+class ReviewCreateRequest(BaseModel):
+    rating: int
+    comment: str
+    reviewer: int
+    evaluated_user: int
+    transaction_id: int  # Added the transaction_id field
+
+@app.post("/create_review/")
+async def create_review(review: ReviewCreateRequest):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Check if rating is within the valid range (0-5)
+        if review.rating < 0 or review.rating > 5:
+            raise HTTPException(status_code=400, detail="Rating must be between 0 and 5")
+
+        # Insert the review into the reviews table
+        cursor.execute("""
+            INSERT INTO reviews (rating, comment, reviewer, evaluated_user)
+            VALUES (%s, %s, %s, %s)
+        """, (review.rating, review.comment, review.reviewer, review.evaluated_user))
+
+        # Get the ID of the newly inserted review
+        review_id = cursor.lastrowid
+
+        # Update the transaction table to associate the new review with the transaction
+        cursor.execute("""
+            UPDATE transactions
+            SET review = %s
+            WHERE transaction_ID = %s
+        """, (review_id, review.transaction_id))
+
+        # Commit the transaction
+        connection.commit()
+
+        return {"message": "Review created successfully", "review_id": review_id}
+
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
