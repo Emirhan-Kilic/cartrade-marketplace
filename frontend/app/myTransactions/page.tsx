@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import {useState, useEffect} from 'react';
 import Navbar from '../components/Navbar'; // Import Navbar component
 
 export default function MyTransactionsPage() {
@@ -11,34 +11,36 @@ export default function MyTransactionsPage() {
         const storedUserId = sessionStorage.getItem('userId');
         if (storedUserId) {
             setUserId(storedUserId);
-        } else {
+        } else if (userId === null) {
             console.error('User ID not found in sessionStorage');
         }
     }, []);
 
+
     // Fetch transactions from the API
     useEffect(() => {
-        if (userId) {
-            const fetchTransactions = async () => {
-                try {
-                    const response = await fetch(`http://localhost:8000/user_transactions/${userId}`);
-                    const data = await response.json();
-
-                    if (data.transactions) {
-                        setTransactions(data.transactions);
-                    } else {
-                        console.error('No transactions found or invalid response structure');
-                    }
-                } catch (error) {
-                    console.error('Error fetching transactions:', error);
-                }
-            };
-
-            fetchTransactions();
-        } else {
-            console.error('User ID not found in sessionStorage');
+        if (!userId) {
+            return; // Exit early if userId is not set
         }
+
+        const fetchTransactions = async () => {
+            try {
+                const response = await fetch(`http://localhost:8000/user_transactions/${userId}`);
+                const data = await response.json();
+
+                if (data.transactions) {
+                    setTransactions(data.transactions);
+                } else {
+                    console.error('No transactions found or invalid response structure');
+                }
+            } catch (error) {
+                console.error('Error fetching transactions:', error);
+            }
+        };
+
+        fetchTransactions();
     }, [userId]);
+
 
     // Style the status text based on its value
     const getStatusStyle = (status: string) => {
@@ -56,7 +58,7 @@ export default function MyTransactionsPage() {
 
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-200 text-gray-800 font-sans">
-            <Navbar /> {/* Navbar component */}
+            <Navbar/> {/* Navbar component */}
 
             <section className="mt-20 bg-white py-6 shadow-xl flex-grow">
                 <div className="container mx-auto px-6">
@@ -112,7 +114,8 @@ export default function MyTransactionsPage() {
                                             <p className="text-sm text-gray-600">
                                                 Vehicle: {transaction.ad_details.vehicle_details.manufacturer} {transaction.ad_details.vehicle_details.model} ({transaction.ad_details.vehicle_details.year})
                                             </p>
-                                            <p className="text-sm text-gray-600">Ad Status: {transaction.ad_details.ad_status}</p>
+                                            <p className="text-sm text-gray-600">Ad
+                                                Status: {transaction.ad_details.ad_status}</p>
                                         </div>
 
                                         {/* Status with Style */}
