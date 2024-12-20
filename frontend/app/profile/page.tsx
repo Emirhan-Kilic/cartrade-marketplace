@@ -3,7 +3,7 @@ import {useState, useEffect} from 'react';
 import {useRouter} from 'next/navigation';
 import Image from 'next/image';
 import Navbar from '../components/Navbar';
-import {FaAd, FaHandshake, FaHeart, FaStar, FaClipboardList} from 'react-icons/fa';
+import {FaAd, FaHandshake, FaHeart, FaStar, FaClipboardList, FaCreditCard} from 'react-icons/fa';
 import AddBalanceModal from './AddBalanceModal'; // Import the modal
 
 interface ProfileData {
@@ -283,6 +283,14 @@ export default function ProfilePage() {
                                     <FaStar className="mr-2"/> My Reviews
                                 </button>
 
+                                {/* My Transactions Button */}
+                                <button
+                                    className="flex items-center bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition"
+                                    onClick={() => window.location.href = '/myTransactions'}
+                                >
+                                    <FaCreditCard className="mr-2"/> My Transactions
+                                </button>
+
                                 {/* Add Balance Button */}
                                 <button
                                     className="flex items-center bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition"
@@ -291,6 +299,7 @@ export default function ProfilePage() {
                                     <span className="mr-2">+</span> Add Balance
                                 </button>
                             </div>
+
                         </div>
                     </div>
                 </div>
