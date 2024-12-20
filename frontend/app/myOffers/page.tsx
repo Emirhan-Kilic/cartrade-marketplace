@@ -1,24 +1,51 @@
 'use client';
-import { useState } from 'react';
-import vehicleData from './vehicleData'; // Import the vehicle data
-
-const mockOffers = [
-  { id: 1, vehicleId: 1, buyerName: 'John Doe', price: 48000, status: 'Pending' },
-  { id: 2, vehicleId: 2, buyerName: 'Jane Smith', price: 49000, status: 'Accepted' },
-  { id: 3, vehicleId: 3, buyerName: 'Alice Brown', price: 50000, status: 'Rejected' },
-];
+import { useState, useEffect } from 'react';
+import Navbar from '../components/Navbar'; // Import Navbar component
 
 export default function MyOffersPage() {
-  const [offers, setOffers] = useState(mockOffers);
+  const [offers, setOffers] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState('');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState(null);
+  const [userId, setUserId] = useState<string | null>(null); // Define userId state
 
-  const handleCancelOffer = (offerId) => {
-    setOffers(offers.filter((offer) => offer.id !== offerId));
+  // Retrieve userId from sessionStorage
+  useEffect(() => {
+    const storedUserId = sessionStorage.getItem('userId');
+    if (storedUserId) {
+      setUserId(storedUserId); // Update userId state
+    } else {
+      console.error('User ID not found in sessionStorage');
+    }
+  }, []);
+
+  // Fetch offers from the API on page load
+  useEffect(() => {
+    if (userId) {
+      const fetchOffers = async () => {
+        try {
+          const response = await fetch(`http://localhost:8000/user/${userId}/offers`);
+          const data = await response.json();
+
+          if (data.message === 'Offers fetched successfully') {
+            setOffers(data.offers);
+          }
+        } catch (error) {
+          console.error('Error fetching offers:', error);
+        }
+      };
+
+      fetchOffers();
+    } else {
+      console.error('User ID not found in sessionStorage');
+    }
+  }, [userId]);
+
+  const handleCancelOffer = (offerId: number) => {
+    setOffers(offers.filter((offer) => offer.offer_ID !== offerId));
   };
 
-  const openPaymentModal = (offer) => {
+  const openPaymentModal = (offer: any) => {
     setSelectedOffer(offer);
     setIsPaymentModalOpen(true);
   };
@@ -33,24 +60,19 @@ export default function MyOffersPage() {
       alert('Please select a payment method.');
       return;
     }
-    alert(`Payment of $${selectedOffer.price} for offer from ${selectedOffer.buyerName} has been processed with ${paymentMethod}.`);
-    setOffers(offers.filter((offer) => offer.id !== selectedOffer.id)); // Remove paid offer from list
+    alert(`Payment of $${selectedOffer.offer_price} for offer from ${selectedOffer.buyerName} has been processed with ${paymentMethod}.`);
+    setOffers(offers.filter((offer) => offer.offer_ID !== selectedOffer.offer_ID)); // Remove paid offer from list
     closePaymentModal();
   };
 
-  // Find vehicle details by vehicleId
-  const getVehicleDetails = (vehicleId) => {
-    return vehicleData.find(vehicle => vehicle.id === vehicleId);
-  };
-
   // Style the status text based on its value
-  const getStatusStyle = (status) => {
+  const getStatusStyle = (status: string) => {
     switch (status) {
-      case 'Pending':
+      case 'pending':
         return 'bg-yellow-500 text-white font-semibold py-1 px-3 rounded-full';
-      case 'Accepted':
+      case 'accepted':
         return 'bg-green-600 text-white font-semibold py-1 px-3 rounded-full';
-      case 'Rejected':
+      case 'rejected':
         return 'bg-red-600 text-white font-semibold py-1 px-3 rounded-full';
       default:
         return 'bg-gray-400 text-white font-semibold py-1 px-3 rounded-full';
@@ -59,18 +81,7 @@ export default function MyOffersPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-200 text-gray-800 font-sans">
-      <nav className="bg-white shadow-md py-4 fixed top-0 left-0 right-0 z-50">
-        <div className="container mx-auto flex justify-between items-center px-6">
-          <div className="text-3xl font-bold tracking-tight text-blue-600">
-            <span className="text-yellow-400">Car</span>Trade
-          </div>
-          <div className="space-x-6 text-lg font-medium">
-            <a href="/" className="hover:text-yellow-400">Home</a>
-            <a href="#contact" className="hover:text-yellow-400">Contact</a>
-            <a href="/my-offers" className="hover:text-yellow-400">My Offers</a>
-          </div>
-        </div>
-      </nav>
+      <Navbar /> {/* Use Navbar component */}
 
       <section className="mt-20 bg-white py-6 shadow-md flex-grow">
         <div className="container mx-auto px-6">
@@ -81,34 +92,38 @@ export default function MyOffersPage() {
               <p className="text-center text-xl text-gray-600">No offers made yet.</p>
             ) : (
               offers.map((offer) => {
-                const vehicle = getVehicleDetails(offer.vehicleId);
                 return (
-                  <div key={offer.id} className="bg-white rounded-lg shadow-lg p-6 flex flex-col justify-between transition-all duration-200 hover:scale-105">
-                    <img src={vehicle?.photo} alt={`${vehicle?.manufacturer} ${vehicle?.model}`} className="rounded-lg mb-4 w-full h-48 object-cover" />
-                    <h3 className="text-xl font-semibold text-gray-800">{vehicle?.manufacturer} {vehicle?.model} ({vehicle?.year})</h3>
-                    <p className="text-sm text-gray-500">Type: {vehicle?.type}</p>
-                    <p className="text-lg font-semibold text-blue-600">${vehicle?.price.toLocaleString()}</p>
-                    <p className="text-sm text-gray-600">Mileage: {vehicle?.mileage} miles</p>
-                    <p className="text-sm text-gray-600">Condition: {vehicle?.condition}</p>
-                    <p className="text-sm text-gray-600">Location: {vehicle?.city}, {vehicle?.state}</p>
+                  <div key={offer.offer_ID} className="bg-white rounded-lg shadow-lg p-6 flex flex-col justify-between transition-all duration-200 hover:scale-105">
+                    <img
+                      src={`https://picsum.photos/400/250`} // Assuming the URL for vehicle photos
+                      alt={`${offer.manufacturer} ${offer.model}`}
+                      className="rounded-lg mb-4 w-full h-48 object-cover"
+                    />
+                    <h3 className="text-xl font-semibold text-gray-800">
+                      {offer.manufacturer} {offer.model} ({offer.year})
+                    </h3>
+                    <p className="text-sm text-gray-500">Condition: {offer.condition}</p>
+                    <p className="text-sm text-gray-500">Mileage: {offer.mileage.toLocaleString()} km</p>
+                    <p className="text-sm text-gray-500">Location: {offer.city}, {offer.state}</p>
+                    <p className="text-lg font-semibold text-blue-600">${offer.offer_price.toLocaleString()}</p>
 
                     {/* Status with style */}
                     <div className="mt-4">
-                      <span className={getStatusStyle(offer.status)}>
-                        {offer.status}
+                      <span className={getStatusStyle(offer.offer_status)}>
+                        {offer.offer_status.charAt(0).toUpperCase() + offer.offer_status.slice(1)}
                       </span>
                     </div>
 
                     <div className="mt-6 flex gap-4">
-                      {offer.status === 'Pending' && (
+                      {offer.offer_status === 'pending' && (
                         <button
                           className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 focus:outline-none transition-all duration-200"
-                          onClick={() => handleCancelOffer(offer.id)}
+                          onClick={() => handleCancelOffer(offer.offer_ID)}
                         >
                           Cancel Offer
                         </button>
                       )}
-                      {offer.status === 'Accepted' && (
+                      {offer.offer_status === 'accepted' && (
                         <button
                           className="flex-1 bg-yellow-600 text-white py-2 rounded-lg hover:bg-yellow-700 focus:outline-none transition-all duration-200"
                           onClick={() => openPaymentModal(offer)}
@@ -129,7 +144,7 @@ export default function MyOffersPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white rounded-lg w-11/12 sm:w-96 p-6 sm:p-8 shadow-xl transform transition-all duration-300 ease-in-out scale-105">
             <h3 className="text-2xl font-semibold text-gray-800">Payment for {selectedOffer.buyerName}</h3>
-            <p className="text-xl font-bold text-blue-600">${selectedOffer.price.toLocaleString()}</p>
+            <p className="text-xl font-bold text-blue-600">${selectedOffer.offer_price.toLocaleString()}</p>
 
             <div className="mt-4">
               <h4 className="text-lg font-semibold text-gray-800">Select Payment Method</h4>

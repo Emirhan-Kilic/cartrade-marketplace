@@ -133,6 +133,12 @@ def db_check():
         raise HTTPException(status_code=500, detail=f"Error: {e}")
 
 
+
+
+""" ************************************** User Backend ************************************************ """
+
+
+
 class UserCreateRequest(BaseModel):
     first_name: str
     last_name: str
@@ -368,6 +374,9 @@ async def update_user_profile(user_id: int, user: UserProfileUpdateRequest):
 class BalanceUpdateRequest(BaseModel):
     amount: float
 
+""" ************************************** Balance Backend ************************************************ """
+
+
 @app.put("/user/{user_id}/balance")
 async def update_user_balance(user_id: int, balance_update: BalanceUpdateRequest):
     connection = get_db_connection()
@@ -494,6 +503,8 @@ class TruckCreate(BaseModel):
     cargo_capacity: int
     has_towing_package: bool
 
+
+""" ************************************** Ads Backend ************************************************ """
 
 @app.post("/add_vehicle/")
 async def add_vehicle(
@@ -837,6 +848,10 @@ async def get_other_user_ads(user_id: int):
 
 
 
+
+
+""" ************************************** Wishlist Backend ************************************************ """
+
 @app.post("/user/{user_id}/wishlist/{bookmarked_ad}")
 async def add_to_wishlist(user_id: int, bookmarked_ad: int):
     connection = get_db_connection()
@@ -958,6 +973,233 @@ async def get_user_wishlist(user_id: int):
         return {"message": "Wishlist items fetched successfully", "wishlist": wishlist_items}
 
     except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+
+
+
+""" ************************************** Offer Backend ************************************************ """
+
+@app.post("/create_offer/{offer_owner}/{sent_to}/{offer_price}")
+async def create_offer(offer_owner: int, sent_to: int, offer_price: float):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Insert the new offer into the offer table
+        cursor.execute("""
+            INSERT INTO offer (offer_price, offer_owner, sent_to)
+            VALUES (%s, %s, %s)
+        """, (offer_price, offer_owner, sent_to))
+
+        connection.commit()
+
+        return {"message": "Offer created successfully"}
+
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.get("/check_offer/{user_id}/{ad_id}")
+async def check_user_offer(user_id: int, ad_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        # Query to check if the user has made an offer on the specific ad
+        cursor.execute("""
+            SELECT offer_ID, offer_price, offer_status
+            FROM offer
+            WHERE offer_owner = %s AND sent_to = %s
+        """, (user_id, ad_id))
+
+        offer = cursor.fetchone()
+
+        if not offer:
+            raise HTTPException(status_code=404, detail="No offer found for this user on the specified ad")
+
+        return {"message": "Offer found", "offer": offer}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.get("/user/{user_id}/offers")
+async def get_user_offers(user_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        # Query to fetch all offers made by the user along with vehicle details
+        cursor.execute("""
+            SELECT 
+                o.offer_ID, o.offer_date, o.offer_price, o.offer_status, o.counter_offer_price, 
+                o.sent_to, a.ad_ID, a.status AS ad_status, a.post_date, a.expiry_date, 
+                v.vehicle_ID, v.manufacturer, v.model, v.year, v.price, v.mileage, v.condition,
+                v.city, v.state, v.description
+            FROM 
+                offer o
+            JOIN 
+                ads a ON o.sent_to = a.ad_ID
+            JOIN 
+                vehicles v ON a.associated_vehicle = v.vehicle_ID
+            WHERE 
+                o.offer_owner = %s
+            ORDER BY 
+                o.offer_date DESC
+        """, (user_id,))
+
+        offers = cursor.fetchall()
+
+        if not offers:
+            raise HTTPException(status_code=404, detail="No offers found for this user")
+
+        return {"message": "Offers fetched successfully", "offers": offers}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+
+@app.get("/ad/{ad_id}/offers")
+async def get_offers_for_ad(ad_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        # Query to fetch all offers made to the specific ad
+        cursor.execute("""
+            SELECT 
+                o.offer_ID, o.offer_date, o.offer_price, o.offer_status, o.counter_offer_price, 
+                o.offer_owner, u.first_name, u.last_name, u.email AS offer_owner_email,
+                a.ad_ID, a.status AS ad_status, a.post_date, a.expiry_date, 
+                v.vehicle_ID, v.manufacturer, v.model, v.year, v.price, v.mileage, v.condition,
+                v.city, v.state, v.description
+            FROM 
+                offer o
+            JOIN 
+                ads a ON o.sent_to = a.ad_ID
+            JOIN 
+                vehicles v ON a.associated_vehicle = v.vehicle_ID
+            JOIN 
+                user u ON o.offer_owner = u.user_ID
+            WHERE 
+                o.sent_to = %s
+            ORDER BY 
+                o.offer_date DESC
+        """, (ad_id,))
+
+        offers = cursor.fetchall()
+
+        if not offers:
+            raise HTTPException(status_code=404, detail="No offers found for this ad")
+
+        return {"message": "Offers fetched successfully", "offers": offers}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+@app.put("/accept_offer/{offer_id}")
+async def accept_offer(offer_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Update the offer status to 'accepted'
+        cursor.execute("""
+            UPDATE offer
+            SET offer_status = 'accepted'
+            WHERE offer_ID = %s
+        """, (offer_id,))
+
+        # Check if any rows were affected
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Offer not found")
+
+        # Commit the transaction
+        connection.commit()
+
+        return {"message": "Offer accepted successfully"}
+
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.put("/reject_offer/{offer_id}")
+async def reject_offer(offer_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Update the offer status to 'rejected'
+        cursor.execute("""
+            UPDATE offer
+            SET offer_status = 'rejected'
+            WHERE offer_ID = %s
+        """, (offer_id,))
+
+        # Check if any rows were affected
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Offer not found")
+
+        # Commit the transaction
+        connection.commit()
+
+        return {"message": "Offer rejected successfully"}
+
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.put("/counter_offer/{offer_id}/{counter_offer_price}")
+async def counter_offer(offer_id: int, counter_offer_price: float):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Update the counter offer price for the given offer
+        cursor.execute("""
+            UPDATE offer
+            SET counter_offer_price = %s
+            WHERE offer_ID = %s
+        """, (counter_offer_price, offer_id))
+
+        # Check if any rows were affected
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Offer not found")
+
+        # Commit the transaction
+        connection.commit()
+
+        return {"message": f"Counter offer updated to ${counter_offer_price:.2f} successfully"}
+
+    except mysql.connector.Error as err:
+        connection.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()

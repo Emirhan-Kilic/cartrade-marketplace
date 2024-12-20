@@ -23,7 +23,7 @@ services:
     container_name: nextjs-frontend
     networks:
       - mynetwork
-    command: sh -c "npm install && npm run dev"
+    command: sh -c "npm install && npm audit fix && npm run dev"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
 

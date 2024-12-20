@@ -163,10 +163,46 @@ export default function BrowseVehicles() {
     };
 
 
-    const handleOfferSubmit = (e) => {
+    const handleOfferSubmit = async (e) => {
         e.preventDefault();
-        alert(`Offer of $${offerPrice} submitted for ${selectedVehicle.manufacturer} ${selectedVehicle.model}.`);
+
+        const userId = sessionStorage.getItem('userId');
+        if (!userId || !selectedVehicle) {
+            alert("No user or vehicle selected.");
+            return;
+        }
+
+        const adId = selectedVehicle.ad_ID; // Assuming `selectedVehicle` contains the `ad_ID`
+
+        try {
+            // Check if the user has already made an offer
+            const checkResponse = await fetch(`http://localhost:8000/check_offer/${userId}/${adId}`);
+
+            if (checkResponse.ok) {
+                const offerData = await checkResponse.json();
+                alert(`You have already made an offer of $${offerData.offer.offer_price} on this vehicle.`);
+                return;
+            }
+
+            // If no offer exists, proceed to create a new offer
+            const createResponse = await fetch(
+                `http://localhost:8000/create_offer/${userId}/${adId}/${offerPrice}`,
+                {method: "POST"}
+            );
+
+            if (createResponse.ok) {
+                alert(`Offer of $${offerPrice} successfully submitted for ${selectedVehicle.manufacturer} ${selectedVehicle.model}.`);
+                closeModal(); // Close the modal on successful submission
+            } else {
+                const errorData = await createResponse.json();
+                alert(`Failed to create offer: ${errorData.detail}`);
+            }
+        } catch (error) {
+            console.error("Error submitting offer:", error);
+            alert("An error occurred while submitting the offer. Please try again later.");
+        }
     };
+
 
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-200 text-gray-800 font-sans">
