@@ -1357,3 +1357,87 @@ async def check_existing_transaction(ad_id: int):
     finally:
         cursor.close()
         connection.close()
+
+
+@app.get("/user_transactions/{user_id}")
+async def get_user_transactions(user_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Fetch transactions involving the user
+        cursor.execute("""
+            SELECT 
+                t.transaction_ID, t.transaction_date, t.price, t.payment_method, 
+                t.payment_status, t.transaction_type, t.review, t.belonged_ad, 
+                t.paid_by, pb.first_name AS payer_first_name, pb.last_name AS payer_last_name, 
+                pb.phone_number AS payer_phone, pb.email AS payer_email, 
+                t.approved_by, ab.first_name AS approver_first_name, ab.last_name AS approver_last_name,
+                ab.phone_number AS approver_phone, ab.email AS approver_email,
+                a.owner, os.first_name AS owner_first_name, os.last_name AS owner_last_name, 
+                os.phone_number AS owner_phone, os.email AS owner_email, 
+                a.associated_vehicle, a.status AS ad_status, 
+                v.manufacturer, v.model, v.year
+            FROM transactions t
+            LEFT JOIN ads a ON t.belonged_ad = a.ad_ID
+            LEFT JOIN user pb ON t.paid_by = pb.user_ID
+            LEFT JOIN user ab ON t.approved_by = ab.user_ID
+            LEFT JOIN user os ON a.owner = os.user_ID
+            LEFT JOIN vehicles v ON a.associated_vehicle = v.vehicle_ID
+            WHERE t.paid_by = %s OR a.owner = %s
+        """, (user_id, user_id))
+        transactions = cursor.fetchall()
+
+        # Structure the results to return
+        transactions_data = []
+        for transaction in transactions:
+            transactions_data.append({
+                "transaction_ID": transaction[0],
+                "transaction_date": transaction[1],
+                "price": transaction[2],
+                "payment_method": transaction[3],
+                "payment_status": transaction[4],
+                "transaction_type": transaction[5],
+                "review": transaction[6],
+                "belonged_ad": transaction[7],
+                "payer_details": {
+                    "user_ID": transaction[8],
+                    "first_name": transaction[9],
+                    "last_name": transaction[10],
+                    "phone_number": transaction[11],
+                    "email": transaction[12]
+                },
+                "approver_details": {
+                    "user_ID": transaction[13],
+                    "first_name": transaction[14],
+                    "last_name": transaction[15],
+                    "phone_number": transaction[16],
+                    "email": transaction[17]
+                } if transaction[13] else None,
+                "owner_details": {
+                    "user_ID": transaction[18],
+                    "first_name": transaction[19],
+                    "last_name": transaction[20],
+                    "phone_number": transaction[21],
+                    "email": transaction[22]
+                },
+                "ad_details": {
+                    "associated_vehicle": transaction[23],
+                    "ad_status": transaction[24],
+                    "vehicle_details": {
+                        "manufacturer": transaction[25],
+                        "model": transaction[26],
+                        "year": transaction[27]
+                    }
+                }
+            })
+
+        return {"transactions": transactions_data}
+
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
