@@ -1204,3 +1204,32 @@ async def counter_offer(offer_id: int, counter_offer_price: float):
     finally:
         cursor.close()
         connection.close()
+
+
+@app.delete("/delete_offer/{offer_id}")
+async def delete_offer(offer_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Delete the offer
+        cursor.execute("""
+            DELETE FROM offer
+            WHERE offer_ID = %s
+        """, (offer_id,))
+
+        # Check if any rows were affected (i.e., the offer was deleted)
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Offer not found")
+
+        # Commit the transaction
+        connection.commit()
+
+        return {"message": "Offer deleted successfully"}
+
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
