@@ -73,11 +73,48 @@ export default function Wishlist() {
         setOfferPrice(e.target.value);
     };
 
-    const handleOfferSubmit = (e: React.FormEvent) => {
+    const handleOfferSubmit = async (e) => {
         e.preventDefault();
-        alert(`Offer of $${offerPrice} submitted for ${selectedVehicle?.manufacturer} ${selectedVehicle?.model}`);
-        handleCloseModal(); // Close modal after submitting offer
+
+        const userId = sessionStorage.getItem('userId');
+        if (!userId || !selectedVehicle) {
+            alert("No user or vehicle selected.");
+            return;
+        }
+
+        const adId = selectedVehicle.ad_ID; // Assuming `selectedVehicle` contains the `ad_ID`
+
+        try {
+            // Check if the user has already made an offer
+            const checkResponse = await fetch(`http://localhost:8000/check_offer/${userId}/${adId}`);
+
+            if (checkResponse.ok) {
+                const offerData = await checkResponse.json();
+                alert(`You have already made an offer of $${offerData.offer.offer_price} on this vehicle.`);
+                return;
+            }
+
+            // If no offer exists, proceed to create a new offer
+            const createResponse = await fetch(
+                `http://localhost:8000/create_offer/${userId}/${adId}/${offerPrice}`,
+                {method: "POST"}
+            );
+
+            const createData = await createResponse.json(); // Parse the response
+            console.log("Create offer response:", createData);
+
+            if (createResponse.ok) {
+                alert(`Offer of $${offerPrice} successfully submitted for ${selectedVehicle.manufacturer} ${selectedVehicle.model}.`);
+                handleCloseModal(); // Close the modal on successful submission
+            } else {
+                alert(`Failed to create offer: ${createData.detail || createData.message || "Unknown error"}`);
+            }
+        } catch (error) {
+            console.error("Error submitting offer:", error);
+            alert("An error occurred while submitting the offer. Please try again later.");
+        }
     };
+
 
     const handleBookmark = async () => {
         const userId = sessionStorage.getItem('userId');
