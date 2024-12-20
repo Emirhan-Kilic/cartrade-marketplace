@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import {useState, useEffect} from 'react';
 import Navbar from '../components/Navbar'; // Import Navbar component
 
 export default function MyOffersPage() {
@@ -8,6 +8,7 @@ export default function MyOffersPage() {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedOffer, setSelectedOffer] = useState(null);
     const [userId, setUserId] = useState<string | null>(null); // Define userId state
+    const [userBalance, setUserBalance] = useState(0); // State for user's balance
 
     // Retrieve userId from sessionStorage
     useEffect(() => {
@@ -41,6 +42,22 @@ export default function MyOffersPage() {
         }
     }, [userId]);
 
+    // Fetch user's balance when payment modal is opened
+    useEffect(() => {
+        if (userId && isPaymentModalOpen && selectedOffer) {
+            const fetchBalance = async () => {
+                try {
+                    const response = await fetch(`http://localhost:8000/user/${userId}/balance`);
+                    const data = await response.json();
+                    setUserBalance(data.balance);
+                } catch (error) {
+                    console.error('Error fetching balance:', error);
+                }
+            };
+            fetchBalance();
+        }
+    }, [userId, isPaymentModalOpen, selectedOffer]);
+
     // Handle canceling an offer by calling the delete_offer API
     const handleCancelOffer = async (offerId: number) => {
         try {
@@ -73,15 +90,56 @@ export default function MyOffersPage() {
     };
 
     // Handle payment processing
-    const handlePayment = () => {
+    const handlePayment = async () => {
         if (!paymentMethod) {
             alert('Please select a payment method.');
             return;
         }
-        alert(`Payment of $${selectedOffer.offer_price} for offer from ${selectedOffer.buyerName} has been processed with ${paymentMethod}.`);
-        setOffers(offers.filter((offer) => offer.offer_ID !== selectedOffer.offer_ID)); // Remove paid offer from list
-        closePaymentModal();
+
+        // Use the counter offer price if available, otherwise use the original offer price
+        const paymentPrice = selectedOffer.counter_offer_price || selectedOffer.offer_price;
+
+        if (userBalance < paymentPrice) {
+            alert('Insufficient balance for this payment.');
+            return;
+        }
+        alert(`Payment of $${paymentPrice} for offer from ${selectedOffer.buyerName} has been processed with ${paymentMethod}.`);
+
+        console.log(selectedOffer)
+        // Prepare the URL with query parameters for transaction data
+        const transactionUrl = new URL('http://localhost:8000/create_transaction/');
+        transactionUrl.searchParams.append('price', paymentPrice);
+        transactionUrl.searchParams.append('payment_method', paymentMethod);
+        transactionUrl.searchParams.append('transaction_type', 'purchase');
+        transactionUrl.searchParams.append('paid_by', parseInt(userId, 10));
+        transactionUrl.searchParams.append('belonged_ad', selectedOffer.ad_ID); // Add belonged_ad (ad_id)
+
+        console.log(transactionUrl.toString()); // This will show the URL being sent
+
+        // Send payment data using GET request with query parameters
+        try {
+            const response = await fetch(transactionUrl.toString(), {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json',
+                },
+                body: '', // No body content as the data is sent in the URL
+            });
+
+            const data = await response.json();
+            if (data.message === 'Transaction created successfully') {
+                // Remove paid offer from the list
+                setOffers(offers.filter((offer) => offer.offer_ID !== selectedOffer.offer_ID));
+                closePaymentModal();
+                alert('Transaction successful!');
+            } else {
+                alert('Error processing transaction: ' + data.detail);
+            }
+        } catch (error) {
+            console.error('Error creating transaction:', error);
+        }
     };
+
 
     // Accept a counter offer
     const handleAcceptCounterOffer = async (offerId: number) => {
@@ -145,8 +203,10 @@ export default function MyOffersPage() {
                         ) : (
                             offers.map((offer) => {
                                 return (
-                                    <div key={offer.offer_ID}
-                                         className="bg-white rounded-xl shadow-lg p-6 flex flex-col justify-between transition-all duration-200 hover:scale-105">
+                                    <div
+                                        key={offer.offer_ID}
+                                        className="bg-white rounded-xl shadow-lg p-6 flex flex-col justify-between transition-all duration-200 hover:scale-105"
+                                    >
                                         <img
                                             src={`https://picsum.photos/400/250`} // Assuming the URL for vehicle photos
                                             alt={`${offer.manufacturer} ${offer.model}`}
@@ -169,14 +229,18 @@ export default function MyOffersPage() {
                                                 <p className="text-xl font-bold text-blue-800">${offer.counter_offer_price.toLocaleString()}</p>
                                                 <div className="flex gap-4 mt-2">
                                                     <button
-                                                        className={`bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-semibold hover:bg-green-700 transition-all duration-200 ${offer.offer_status === 'rejected' || offer.offer_status === 'accepted' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        className={`bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-semibold hover:bg-green-700 transition-all duration-200 ${
+                                                            offer.offer_status === 'rejected' || offer.offer_status === 'accepted' ? 'opacity-50 cursor-not-allowed' : ''
+                                                        }`}
                                                         onClick={() => handleAcceptCounterOffer(offer.offer_ID)} // Use offer_ID here
                                                         disabled={offer.offer_status === 'rejected' || offer.offer_status === 'accepted'}
                                                     >
                                                         Accept Counter Offer
                                                     </button>
                                                     <button
-                                                        className={`bg-red-600 text-white py-2 px-4 rounded-lg text-sm font-semibold hover:bg-red-700 transition-all duration-200 ${offer.offer_status === 'rejected' || offer.offer_status === 'accepted' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        className={`bg-red-600 text-white py-2 px-4 rounded-lg text-sm font-semibold hover:bg-red-700 transition-all duration-200 ${
+                                                            offer.offer_status === 'rejected' || offer.offer_status === 'accepted' ? 'opacity-50 cursor-not-allowed' : ''
+                                                        }`}
                                                         onClick={() => handleRejectCounterOffer(offer.offer_ID)} // Use offer_ID here
                                                         disabled={offer.offer_status === 'rejected' || offer.offer_status === 'accepted'}
                                                     >
@@ -188,9 +252,9 @@ export default function MyOffersPage() {
 
                                         {/* Status with style */}
                                         <div className="mt-4">
-                                            <span className={getStatusStyle(offer.offer_status)}>
-                                                {offer.offer_status.charAt(0).toUpperCase() + offer.offer_status.slice(1)}
-                                            </span>
+                      <span className={getStatusStyle(offer.offer_status)}>
+                        {offer.offer_status.charAt(0).toUpperCase() + offer.offer_status.slice(1)}
+                      </span>
                                         </div>
 
                                         <div className="mt-6 flex gap-4">
@@ -202,15 +266,20 @@ export default function MyOffersPage() {
                                                     Cancel Offer
                                                 </button>
                                             )}
+
+                                        </div>
+                                        <div className="mt-6 flex gap-4">
                                             {offer.offer_status === 'accepted' && (
                                                 <button
-                                                    className="flex-1 bg-yellow-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-yellow-700 transition-all duration-200"
+                                                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all duration-200"
                                                     onClick={() => openPaymentModal(offer)}
                                                 >
-                                                    Pay Now
+                                                    Make Payment
                                                 </button>
                                             )}
                                         </div>
+
+
                                     </div>
                                 );
                             })
@@ -219,39 +288,42 @@ export default function MyOffersPage() {
                 </div>
             </section>
 
-            {isPaymentModalOpen && selectedOffer && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                    <div
-                        className="bg-white rounded-lg w-11/12 sm:w-96 p-6 sm:p-8 shadow-xl transform transition-all duration-300 ease-in-out scale-105">
-                        <h3 className="text-2xl font-semibold text-gray-800">Payment for {selectedOffer.buyerName}</h3>
-                        <p className="text-xl font-bold text-blue-600">${selectedOffer.offer_price.toLocaleString()}</p>
+            {/* Payment Modal */}
+            {isPaymentModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+                        <h3 className="text-2xl font-semibold text-center text-blue-700">Make Payment</h3>
+                        <p className="mt-4 text-sm text-gray-700">Your balance: ${userBalance.toLocaleString()}</p>
+                        <p className="mt-2 text-lg text-gray-700">Amount:
+                            ${selectedOffer?.counter_offer_price || selectedOffer?.offer_price}</p>
 
                         <div className="mt-4">
-                            <h4 className="text-lg font-semibold text-gray-800">Select Payment Method</h4>
                             <select
-                                className="w-full py-2 px-4 mt-2 border rounded-lg text-sm font-medium text-gray-700"
+                                className="w-full py-2 px-4 border border-gray-300 rounded-lg"
                                 value={paymentMethod}
                                 onChange={(e) => setPaymentMethod(e.target.value)}
                             >
-                                <option value="">Select Method</option>
-                                <option value="Credit Card">Credit Card</option>
-                                <option value="PayPal">PayPal</option>
-                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="">Select Payment Method</option>
+                                <option value="credit_card">Credit Card</option>
+                                <option value="paypal">PayPal</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="crypto">Crypto</option>
                             </select>
                         </div>
 
-                        <div className="mt-6 flex justify-between gap-4">
+
+                        <div className="mt-6 flex justify-between">
                             <button
-                                className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-400 focus:outline-none transition-all duration-200"
+                                className="bg-gray-400 text-white py-2 px-4 rounded-lg"
                                 onClick={closePaymentModal}
                             >
-                                Close
+                                Cancel
                             </button>
                             <button
-                                className="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-green-700 focus:outline-none transition-all duration-200"
+                                className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-all duration-200"
                                 onClick={handlePayment}
                             >
-                                Process Payment
+                                Confirm Payment
                             </button>
                         </div>
                     </div>

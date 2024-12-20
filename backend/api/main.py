@@ -58,6 +58,7 @@ missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     raise Exception(f"Missing environment variables: {', '.join(missing_vars)}")
 
+
 # Create a function to get the database connection
 def get_db_connection():
     try:
@@ -71,12 +72,14 @@ def get_db_connection():
     except mysql.connector.Error as err:
         raise HTTPException(status_code=500, detail=f"Database connection failed: {err}")
 
+
 # Models for User Registration and Login
 
 
 class UserLoginRequest(BaseModel):
     email: str
     password: str
+
 
 # Models for Ads, Offers, Wishlist, and Reviews
 class Ad(BaseModel):
@@ -89,6 +92,7 @@ class Ad(BaseModel):
     updated_at: str
     status: str
 
+
 class Offer(BaseModel):
     offer_ID: int
     ad_ID: int
@@ -97,11 +101,13 @@ class Offer(BaseModel):
     offer_status: str
     offer_date: str
 
+
 class WishlistItem(BaseModel):
     wishlist_ID: int
     user_ID: int
     ad_ID: int
     added_at: str
+
 
 class Review(BaseModel):
     review_ID: int
@@ -111,12 +117,15 @@ class Review(BaseModel):
     review_text: str
     created_at: str
 
+
 # Password hashing and verification functions
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
+
 
 # Check backend and database connectivity
 @app.get("/dbCheck")
@@ -133,10 +142,7 @@ def db_check():
         raise HTTPException(status_code=500, detail=f"Error: {e}")
 
 
-
-
 """ ************************************** User Backend ************************************************ """
-
 
 
 class UserCreateRequest(BaseModel):
@@ -145,6 +151,7 @@ class UserCreateRequest(BaseModel):
     email: str
     password: str
     role: str
+
 
 # Register user endpoint
 @app.post("/register")
@@ -169,10 +176,10 @@ async def register_user(user: UserCreateRequest):
         VALUES (%s, %s, %s, %s)
         """,
         (
-            user.first_name, 
-            user.last_name, 
-            user.email, 
-            hashed_password, 
+            user.first_name,
+            user.last_name,
+            user.email,
+            hashed_password,
         )
     )
     connection.commit()
@@ -205,8 +212,6 @@ async def register_user(user: UserCreateRequest):
     connection.close()
 
     return {"message": "User successfully registered"}
-
-
 
 
 # Login user endpoint
@@ -254,10 +259,6 @@ async def login(user: UserLoginRequest):
     }
 
 
-
-
-
-
 # View user profile endpoint
 class UserProfileUpdateRequest(BaseModel):
     first_name: str
@@ -269,6 +270,7 @@ class UserProfileUpdateRequest(BaseModel):
     profile_picture: str = ""
     balance: float
     join_date: str = ""
+
 
 @app.get("/user/profile/{user_id}", response_model=UserProfileUpdateRequest)
 async def view_user_profile(user_id: int):
@@ -298,8 +300,6 @@ async def view_user_profile(user_id: int):
     return user
 
 
-
-
 class UserProfileUpdateRequest(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -309,6 +309,7 @@ class UserProfileUpdateRequest(BaseModel):
 
     class Config:
         orm_mode = True
+
 
 @app.put("/user/profile/{user_id}")
 async def update_user_profile(user_id: int, user: UserProfileUpdateRequest):
@@ -360,19 +361,19 @@ async def update_user_profile(user_id: int, user: UserProfileUpdateRequest):
         SET {', '.join(update_fields)}
         WHERE user_ID = %s
     """
-    
+
     # Execute the query
     cursor.execute(query, tuple(values))
     connection.commit()
     cursor.close()
     connection.close()
-    
-    return {"message": "User profile successfully updated"}
 
+    return {"message": "User profile successfully updated"}
 
 
 class BalanceUpdateRequest(BaseModel):
     amount: float
+
 
 """ ************************************** Balance Backend ************************************************ """
 
@@ -410,7 +411,6 @@ async def update_user_balance(user_id: int, balance_update: BalanceUpdateRequest
     return {"message": "Balance updated successfully", "new_balance": new_balance}
 
 
-
 @app.put("/user/{user_id}/deduct_balance_for_premium")
 async def deduct_balance_for_premium(user_id: int):
     connection = get_db_connection()
@@ -444,8 +444,6 @@ async def deduct_balance_for_premium(user_id: int):
     return {"message": "150 TL has been deducted for the premium ad", "new_balance": new_balance}
 
 
-
-
 @app.get("/user/{user_id}/balance")
 async def get_user_balance(user_id: int):
     connection = get_db_connection()
@@ -465,20 +463,6 @@ async def get_user_balance(user_id: int):
     return {"user_id": user_id, "balance": float(user["balance"])}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 class VehicleCreate(BaseModel):
     manufacturer: str
     model: str
@@ -490,14 +474,17 @@ class VehicleCreate(BaseModel):
     state: str
     description: str
 
+
 class CarCreate(BaseModel):
     number_of_doors: int
     seating_capacity: int
     transmission: str
 
+
 class MotorcycleCreate(BaseModel):
     engine_capacity: int
     bike_type: str
+
 
 class TruckCreate(BaseModel):
     cargo_capacity: int
@@ -505,6 +492,7 @@ class TruckCreate(BaseModel):
 
 
 """ ************************************** Ads Backend ************************************************ """
+
 
 @app.post("/add_vehicle/")
 async def add_vehicle(
@@ -612,13 +600,11 @@ async def add_vehicle(
         print("Connection closed.")  # Debug print to confirm connection close
 
 
-
-
-
 class AdCreate(BaseModel):
     is_premium: Optional[bool] = False
     associated_vehicle: int
     owner: int
+
 
 @app.post("/add_ad/")
 async def add_ad(ad: AdCreate):
@@ -665,8 +651,6 @@ async def add_ad(ad: AdCreate):
         connection.close()
 
 
-
-
 @app.get("/user/{user_id}/ads")
 async def get_user_ads(user_id: int):
     connection = get_db_connection()
@@ -687,9 +671,6 @@ async def get_user_ads(user_id: int):
     finally:
         cursor.close()
         connection.close()
-
-
-
 
 
 @app.get("/user/{user_id}/vehicles")
@@ -799,9 +780,6 @@ async def delete_ad(ad_id: int):
         connection.close()
 
 
-
-
-
 @app.get("/user/{user_id}/other-ads")
 async def get_other_user_ads(user_id: int):
     connection = get_db_connection()
@@ -847,10 +825,8 @@ async def get_other_user_ads(user_id: int):
         connection.close()
 
 
-
-
-
 """ ************************************** Wishlist Backend ************************************************ """
+
 
 @app.post("/user/{user_id}/wishlist/{bookmarked_ad}")
 async def add_to_wishlist(user_id: int, bookmarked_ad: int):
@@ -979,10 +955,8 @@ async def get_user_wishlist(user_id: int):
         connection.close()
 
 
-
-
-
 """ ************************************** Offer Backend ************************************************ """
+
 
 @app.post("/create_offer/{offer_owner}/{sent_to}/{offer_price}")
 async def create_offer(offer_owner: int, sent_to: int, offer_price: float):
@@ -1074,7 +1048,6 @@ async def get_user_offers(user_id: int):
         connection.close()
 
 
-
 @app.get("/ad/{ad_id}/offers")
 async def get_offers_for_ad(ad_id: int):
     connection = get_db_connection()
@@ -1115,6 +1088,7 @@ async def get_offers_for_ad(ad_id: int):
     finally:
         cursor.close()
         connection.close()
+
 
 @app.put("/accept_offer/{offer_id}")
 async def accept_offer(offer_id: int):
@@ -1229,6 +1203,83 @@ async def delete_offer(offer_id: int):
 
     except mysql.connector.Error as err:
         connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+""" ************************************** Transaction Backend ************************************************ """
+
+
+@app.post("/create_transaction/")
+async def create_transaction(
+        price: float,
+        payment_method: str,
+        transaction_type: str,
+        paid_by: int,
+        review: Optional[int] = None,  # Optional, defaults to None
+        belonged_ad: Optional[int] = None,  # Optional, defaults to None
+        approved_by: Optional[int] = None  # Optional, defaults to None
+):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Check if price is valid
+        if price <= 0:
+            raise HTTPException(status_code=400, detail="Price must be greater than 0")
+
+        # Check if valid payment method
+        valid_payment_methods = ['credit_card', 'paypal', 'bank_transfer', 'crypto']
+        if payment_method not in valid_payment_methods:
+            raise HTTPException(status_code=400, detail="Invalid payment method")
+
+        # Check if valid transaction type
+        valid_transaction_types = ['purchase', 'refund', 'deposit', 'withdrawal']
+        if transaction_type not in valid_transaction_types:
+            raise HTTPException(status_code=400, detail="Invalid transaction type")
+
+        # Insert a new transaction into the transactions table
+        cursor.execute("""
+            INSERT INTO transactions (
+                price, payment_method, transaction_type, review, belonged_ad, paid_by, approved_by
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (price, payment_method, transaction_type, review, belonged_ad, paid_by, approved_by))
+
+        # Commit the transaction
+        connection.commit()
+
+        return {"message": "Transaction created successfully"}
+
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.get("/check_existing_transaction/{ad_id}")
+async def check_existing_transaction(ad_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        # Check if there is any transaction for the given ad_id
+        cursor.execute("""
+            SELECT 1
+            FROM transactions
+            WHERE belonged_ad = %s
+            LIMIT 1
+        """, (ad_id,))
+
+        # If a row is found, it means a transaction exists
+        transaction_exists = cursor.fetchone() is not None
+
+        return {"transaction_exists": transaction_exists}
+
+    except mysql.connector.Error as err:
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
