@@ -83,50 +83,6 @@ export default function SellerDashboard() {
         }
     };
 
-    const handleAcceptOffer = async (offerId: number) => {
-        try {
-            const response = await fetch(`http://localhost:8000/accept_offer/${offerId}`, {
-                method: 'PUT',
-            });
-            const data = await response.json();
-            if (response.ok) {
-                setVehicleOffers((prevOffers) =>
-                    prevOffers.map((offer) =>
-                        offer.offer_ID === offerId ? { ...offer, offer_status: 'accepted' } : offer
-                    )
-                );
-                alert('Offer accepted successfully!');
-            } else {
-                alert(`Failed to accept offer: ${data.detail}`);
-            }
-        } catch (error) {
-            console.error('Error accepting offer:', error);
-            alert('Error accepting offer');
-        }
-    };
-
-    const handleRejectOffer = async (offerId: number) => {
-        try {
-            const response = await fetch(`http://localhost:8000/reject_offer/${offerId}`, {
-                method: 'PUT',
-            });
-            const data = await response.json();
-            if (response.ok) {
-                setVehicleOffers((prevOffers) =>
-                    prevOffers.map((offer) =>
-                        offer.offer_ID === offerId ? { ...offer, offer_status: 'rejected' } : offer
-                    )
-                );
-                alert('Offer rejected successfully!');
-            } else {
-                alert(`Failed to reject offer: ${data.detail}`);
-            }
-        } catch (error) {
-            console.error('Error rejecting offer:', error);
-            alert('Error rejecting offer');
-        }
-    };
-
     const handleDeleteListing = async (vehicleId: number, adId: number, status: string) => {
         if (status === 'Sold') {
             alert('This vehicle cannot be deleted because it is marked as Sold.');
@@ -257,8 +213,6 @@ export default function SellerDashboard() {
                     selectedVehicle={selectedVehicle}
                     offers={vehicleOffers}
                     closeModal={closeModal}
-                    onAcceptOffer={handleAcceptOffer}
-                    onRejectOffer={handleRejectOffer}
                 />
             )}
         </div>

@@ -66,7 +66,6 @@ const VehicleOffersModal: React.FC<VehicleOffersModalProps> = ({
         setLoading({...loading, [offerId]: true});
 
         try {
-            // API call to update the counter offer
             const response = await fetch(`http://localhost:8000/counter_offer/${offerId}/${price}`, {
                 method: 'PUT',
             });
@@ -75,15 +74,12 @@ const VehicleOffersModal: React.FC<VehicleOffersModalProps> = ({
                 throw new Error('Failed to update counter offer');
             }
 
-            // Reset counter offer price and loading state after success
             setCounterOfferPrice({
                 ...counterOfferPrice,
                 [offerId]: '',
             });
 
-            // Close the modal after the counter offer is successfully submitted
-            closeModal();
-
+            closeModal(); // Close modal after counter offer submission
         } catch (error) {
             alert('Error updating counter offer: ' + error.message);
         } finally {
@@ -91,6 +87,41 @@ const VehicleOffersModal: React.FC<VehicleOffersModalProps> = ({
         }
     };
 
+    const handleAcceptOffer = async (offerId: number) => {
+        try {
+            const response = await fetch(`http://localhost:8000/accept_offer/${offerId}`, {
+                method: 'PUT',
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert('Offer accepted successfully!');
+                closeModal(); // Close modal after successful acceptance
+            } else {
+                alert(`Failed to accept offer: ${data.detail}`);
+            }
+        } catch (error) {
+            console.error('Error accepting offer:', error);
+            alert('Error accepting offer');
+        }
+    };
+
+    const handleRejectOffer = async (offerId: number) => {
+        try {
+            const response = await fetch(`http://localhost:8000/reject_offer/${offerId}`, {
+                method: 'PUT',
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert('Offer rejected successfully!');
+                closeModal(); // Close modal after successful rejection
+            } else {
+                alert(`Failed to reject offer: ${data.detail}`);
+            }
+        } catch (error) {
+            console.error('Error rejecting offer:', error);
+            alert('Error rejecting offer');
+        }
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 overflow-hidden">
@@ -168,6 +199,7 @@ const VehicleOffersModal: React.FC<VehicleOffersModalProps> = ({
                                         <button
                                             className={`py-2 px-5 text-white rounded-lg shadow-md transition-all duration-200 transform hover:scale-105 ${isDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300'}`}
                                             disabled={isDisabled}
+                                            onClick={() => handleAcceptOffer(offer.offer_ID)}
                                         >
                                             Accept
                                         </button>
@@ -175,6 +207,7 @@ const VehicleOffersModal: React.FC<VehicleOffersModalProps> = ({
                                         <button
                                             className={`py-2 px-5 text-white rounded-lg shadow-md transition-all duration-200 transform hover:scale-105 ${isDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300'}`}
                                             disabled={isDisabled}
+                                            onClick={() => handleRejectOffer(offer.offer_ID)}
                                         >
                                             Reject
                                         </button>
