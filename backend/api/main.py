@@ -1528,3 +1528,86 @@ async def get_user_reviews(user_id: int):
     finally:
         cursor.close()
         connection.close()
+
+
+""" ************************************** Admin Page v.0.1 ************************************************ """
+# Admin endpoints
+@app.get("/admin/users")
+async def get_users():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT user_ID, first_name, last_name, email, 
+                   phone_number, join_date, rating
+            FROM user
+            ORDER BY join_date DESC
+        """)
+        return {"users": cursor.fetchall()}
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.put("/admin/users/{user_id}/deactivate") 
+async def deactivate_user(user_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE user SET active = FALSE WHERE user_ID = %s", (user_id,))
+        conn.commit()
+        return {"message": "User deactivated successfully"}
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.get("/admin/ads/pending")
+async def get_pending_ads():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT a.ad_ID, a.post_date, v.manufacturer, v.model,
+                   v.year, v.price, u.first_name, u.last_name 
+            FROM ads a
+            JOIN vehicles v ON a.associated_vehicle = v.vehicle_ID 
+            JOIN user u ON a.owner = u.user_ID
+            WHERE a.status = 'Pending'
+            ORDER BY a.post_date DESC
+        """)
+        return {"pending_ads": cursor.fetchall()}
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.put("/admin/ads/{ad_id}/{action}")
+async def handle_ad(ad_id: int, action: str):
+    if action not in ['approve', 'reject']:
+        raise HTTPException(status_code=400, detail="Invalid action")
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        status = 'Active' if action == 'approve' else 'Rejected'
+        cursor.execute("UPDATE ads SET status = %s WHERE ad_ID = %s", (status, ad_id))
+        conn.commit()
+        return {"message": f"Ad {action}ed successfully"}
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.get("/admin/reports")
+async def get_reports():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT r.report_ID, r.description, r.report_date,
+                   r.status, u.first_name, u.last_name
+            FROM reports r
+            JOIN user u ON r.reported_user = u.user_ID
+            ORDER BY r.report_date DESC
+        """)
+        return {"reports": cursor.fetchall()}
+    finally:
+        cursor.close()
+        conn.close()
