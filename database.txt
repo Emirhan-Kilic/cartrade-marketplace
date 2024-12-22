@@ -218,3 +218,13 @@ CREATE TABLE bids (
 );
 
 
+CREATE TABLE reports (
+    report_ID INT PRIMARY KEY AUTO_INCREMENT,
+    description TEXT NOT NULL,
+    report_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('Pending', 'In Review', 'Resolved') DEFAULT 'Pending',
+    reported_user INT NOT NULL,
+    reported_by INT NOT NULL,
+    FOREIGN KEY (reported_user) REFERENCES user(user_ID) ON DELETE CASCADE,
+    FOREIGN KEY (reported_by) REFERENCES user(user_ID) ON DELETE CASCADE
+);

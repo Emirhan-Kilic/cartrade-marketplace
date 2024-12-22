@@ -1533,7 +1533,7 @@ async def get_user_reviews(user_id: int):
 """ ************************************** Admin Page v.0.1 ************************************************ """
 # Admin endpoints
 @app.get("/admin/users")
-async def get_users():
+async def get_admin_users():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
@@ -1544,6 +1544,8 @@ async def get_users():
             ORDER BY join_date DESC
         """)
         return {"users": cursor.fetchall()}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
         conn.close()
@@ -1560,7 +1562,7 @@ async def deactivate_user(user_id: int):
         cursor.close()
         conn.close()
 
-@app.get("/admin/ads/pending")
+@app.get("/admin/pending-ads")
 async def get_pending_ads():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -1575,6 +1577,8 @@ async def get_pending_ads():
             ORDER BY a.post_date DESC
         """)
         return {"pending_ads": cursor.fetchall()}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
         conn.close()
@@ -1591,6 +1595,8 @@ async def handle_ad(ad_id: int, action: str):
         cursor.execute("UPDATE ads SET status = %s WHERE ad_ID = %s", (status, ad_id))
         conn.commit()
         return {"message": f"Ad {action}ed successfully"}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
         conn.close()
@@ -1607,7 +1613,10 @@ async def get_reports():
             JOIN user u ON r.reported_user = u.user_ID
             ORDER BY r.report_date DESC
         """)
-        return {"reports": cursor.fetchall()}
+        reports = cursor.fetchall()
+        return {"reports": reports if reports else []}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
     finally:
         cursor.close()
         conn.close()
