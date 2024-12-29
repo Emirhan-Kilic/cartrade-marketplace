@@ -34,20 +34,25 @@ export default function Home() {
         <div className="container mx-auto flex justify-between items-center px-8">
           {/* Brand */}
           <div className="text-3xl font-semibold tracking-wide">
-            <span className="text-yellow-400">Car</span>Trade
+            <Link
+              href="/"
+              className="transition duration-300 ease-in-out transform hover:scale-105 px-4 py-2 border border-transparent rounded-full hover:text-black"
+            >
+              <span className="text-yellow-400">Car</span>Trade
+            </Link>
           </div>
 
           {/* Navbar Links */}
           <div className="space-x-8 flex items-center text-lg font-medium">
             <Link
               href="/login"
-              className="hover:text-yellow-400 transition duration-300 ease-in-out transform hover:scale-105 px-4 py-2 border border-transparent rounded-full hover:bg-yellow-400 hover:text-black"
+              className="transition duration-300 ease-in-out transform hover:scale-105 px-4 py-2 border border-transparent rounded-full hover:bg-yellow-400 hover:text-black"
             >
               Login
             </Link>
             <Link
               href="/register"
-              className="hover:text-yellow-400 transition duration-300 ease-in-out transform hover:scale-105 px-4 py-2 border border-transparent rounded-full hover:bg-yellow-400 hover:text-black"
+              className="transition duration-300 ease-in-out transform hover:scale-105 px-4 py-2 border border-transparent rounded-full hover:bg-yellow-400 hover:text-black"
             >
               Sign Up
             </Link>
