@@ -9,7 +9,8 @@ CREATE TABLE user (
                       rating DECIMAL(3,2) DEFAULT 0.0 CHECK (rating BETWEEN 0.0 AND 5.0),
                       join_date DATE DEFAULT (CURRENT_DATE),
                       profile_picture MEDIUMBLOB,
-                      balance DECIMAL(10,2) DEFAULT 0.0
+                      balance DECIMAL(10,2) DEFAULT 0.0,
+                      active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE vehicles (
@@ -217,6 +218,16 @@ CREATE TABLE bids (
                       FOREIGN KEY (bidder) REFERENCES owner_seller(user_ID) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+CREATE TABLE reports (
+    report_ID INT PRIMARY KEY AUTO_INCREMENT,
+    description TEXT NOT NULL,
+    report_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('Pending', 'In Review', 'Resolved') DEFAULT 'Pending',
+    reported_user INT NOT NULL,
+    reported_by INT NOT NULL,
+    FOREIGN KEY (reported_user) REFERENCES user(user_ID) ON DELETE CASCADE,
+    FOREIGN KEY (reported_by) REFERENCES user(user_ID) ON DELETE CASCADE
+);
 
 DELIMITER //
 
@@ -251,3 +262,6 @@ BEGIN
     WHERE user_id = OLD.evaluated_user;
 END //
 DELIMITER ;
+
+
+

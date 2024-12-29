@@ -1528,3 +1528,214 @@ async def get_user_reviews(user_id: int):
     finally:
         cursor.close()
         connection.close()
+
+
+""" ************************************** Admin Page v.0.1 ************************************************ """
+# A model for Admin updates
+class AdminUserUpdateRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+    rating: Optional[float] = None
+    active: Optional[bool] = None
+
+# 1. GET ALL USERS
+@app.get("/admin/users")
+def get_all_users():
+    """
+    Retrieves all users with basic info.
+    NOTE: We are NOT restricting this endpoint to admin only, for your testing purposes.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT
+                user_ID, first_name, last_name, email,
+                phone_number, address, rating, active, join_date
+            FROM user
+        """)
+        users = cursor.fetchall()
+        return {"users": users}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 2. (Optional) GET USER DETAILS
+@app.get("/admin/users/{user_id}")
+def get_user_details(user_id: int):
+    """
+    Retrieves detailed info for a specific user by ID.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT
+                user_ID, first_name, last_name, email,
+                phone_number, address, rating, active, join_date
+            FROM user
+            WHERE user_ID = %s
+        """, (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"user": user}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 3. UPDATE USER FIELDS
+@app.put("/admin/users/{user_id}")
+def admin_update_user(user_id: int, user_update: AdminUserUpdateRequest):
+    """
+    Allows Admin to update user info: name, email, phone, address, rating, etc.
+    We do NOT check roles so anyone can call it for your testing scenario.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        fields = []
+        values = []
+
+        if user_update.first_name is not None:
+            fields.append("first_name = %s")
+            values.append(user_update.first_name)
+        if user_update.last_name is not None:
+            fields.append("last_name = %s")
+            values.append(user_update.last_name)
+        if user_update.email is not None:
+            # Optionally, check uniqueness or validity
+            fields.append("email = %s")
+            values.append(user_update.email)
+        if user_update.phone_number is not None:
+            fields.append("phone_number = %s")
+            values.append(user_update.phone_number)
+        if user_update.address is not None:
+            fields.append("address = %s")
+            values.append(user_update.address)
+        if user_update.rating is not None:
+            fields.append("rating = %s")
+            values.append(user_update.rating)
+        if user_update.active is not None:
+            fields.append("active = %s")
+            values.append(user_update.active)
+
+        if not fields:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        # Add user_id to the end for the WHERE clause
+        values.append(user_id)
+        query = f"""
+            UPDATE user
+            SET {', '.join(fields)}
+            WHERE user_ID = %s
+        """
+        cursor.execute(query, tuple(values))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found or no changes made")
+
+        return {"message": "User updated successfully"}
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 4. DEACTIVATE USER
+@app.put("/admin/users/{user_id}/deactivate")
+def deactivate_user(user_id: int):
+    """
+    Sets a user's 'active' field to False.
+    No role check here for your dev/testing convenience.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("""
+            UPDATE user
+            SET active = FALSE
+            WHERE user_ID = %s
+        """, (user_id,))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found or already inactive")
+
+        return {"message": "User account deactivated"}
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 5. DEACTIVATE USER
+@app.put("/admin/users/{user_id}/reactivate")
+def reactivate_user(user_id: int):
+    """
+    Sets a user's 'active' field to True.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("""
+            UPDATE user
+            SET active = TRUE
+            WHERE user_ID = %s
+        """, (user_id,))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found or already active")
+
+        return {"message": "User account reactivated"}
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 6. RESET USER PASSWORD
+@app.put("/admin/users/{user_id}/reset-password")
+def reset_user_password(user_id: int):
+    """
+    Resets a user's password to a placeholder or random string.
+    We do NOT restrict access here, for your dev/testing purposes.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        new_password = "NewP@ss123"  # For demonstration only
+        hashed_password = hash_password(new_password)  
+
+        cursor.execute("""
+            UPDATE user
+            SET password = %s
+            WHERE user_ID = %s
+        """, (hashed_password, user_id))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {
+            "message": "Password reset successfully",
+            "new_password": new_password
+        }
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
