@@ -218,7 +218,6 @@ CREATE TABLE bids (
                       FOREIGN KEY (bidder) REFERENCES owner_seller(user_ID) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-
 CREATE TABLE reports (
     report_ID INT PRIMARY KEY AUTO_INCREMENT,
     description TEXT NOT NULL,
@@ -229,3 +228,40 @@ CREATE TABLE reports (
     FOREIGN KEY (reported_user) REFERENCES user(user_ID) ON DELETE CASCADE,
     FOREIGN KEY (reported_by) REFERENCES user(user_ID) ON DELETE CASCADE
 );
+
+DELIMITER //
+
+CREATE TRIGGER update_user_rating_after_insert
+AFTER INSERT ON reviews
+FOR EACH ROW
+BEGIN   
+    -- Update the user's rating in the users table
+    UPDATE user
+    SET rating = (SELECT AVG(rating) FROM reviews WHERE evaluated_user = NEW.evaluated_user)
+    WHERE user_id = NEW.evaluated_user;
+END //
+
+CREATE TRIGGER update_user_rating_after_update
+AFTER UPDATE ON reviews
+FOR EACH ROW
+BEGIN   
+    -- Update the user's rating in the users table
+    UPDATE user
+    SET rating = (SELECT AVG(rating) FROM reviews WHERE evaluated_user = NEW.evaluated_user)
+    WHERE user_id = NEW.evaluated_user;
+END //
+
+
+CREATE TRIGGER update_user_rating_after_delete
+AFTER DELETE ON reviews
+FOR EACH ROW
+BEGIN   
+    -- Update the user's rating in the users table
+    UPDATE user
+    SET rating = (SELECT AVG(rating) FROM reviews WHERE evaluated_user = OLD.evaluated_user)
+    WHERE user_id = OLD.evaluated_user;
+END //
+DELIMITER ;
+
+
+

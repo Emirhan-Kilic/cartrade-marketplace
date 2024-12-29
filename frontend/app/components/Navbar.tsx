@@ -24,7 +24,12 @@ export default function Navbar() {
             <div className="container mx-auto flex justify-between items-center px-6">
                 {/* Logo */}
                 <div className="text-3xl font-bold tracking-tight text-blue-600">
-                    <span className="text-yellow-400">Car</span>Trade
+                    <Link
+                        href="/"
+                        className="transition duration-300 ease-in-out transform hover:scale-105 px-4 py-2 border border-transparent rounded-full hover:text-black"
+                    >
+                        <span className="text-yellow-400">Car</span>Trade
+                    </Link>
                 </div>
 
                 {/* Navigation Links */}
