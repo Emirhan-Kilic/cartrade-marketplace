@@ -9,7 +9,8 @@ CREATE TABLE user (
                       rating DECIMAL(3,2) DEFAULT 0.0 CHECK (rating BETWEEN 0.0 AND 5.0),
                       join_date DATE DEFAULT (CURRENT_DATE),
                       profile_picture MEDIUMBLOB,
-                      balance DECIMAL(10,2) DEFAULT 0.0
+                      balance DECIMAL(10,2) DEFAULT 0.0,
+                      active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE vehicles (
