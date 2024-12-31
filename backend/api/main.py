@@ -62,15 +62,17 @@ if missing_vars:
 # Create a function to get the database connection
 def get_db_connection():
     try:
-        connection = mysql.connector.connect(
-            **DB_CONFIG,
-            ssl_ca=ssl_config.get('ssl_ca', None) if ssl_config else None,
-            ssl_verify_cert=ssl_config.get('ssl_verify_cert', False) if ssl_config else False,
-            ssl_disabled=ssl_config.get('ssl_disabled', False) if ssl_config else False
+        conn = mysql.connector.connect(
+            user=DB_CONFIG['user'],
+            password=DB_CONFIG['password'],
+            host=DB_CONFIG['host'],
+            database=DB_CONFIG['database'],
+            port=DB_CONFIG['port'],
+            **(ssl_config if ssl_config else {})
         )
-        return connection
+        return conn
     except mysql.connector.Error as err:
-        raise HTTPException(status_code=500, detail=f"Database connection failed: {err}")
+        raise HTTPException(status_code=500, detail=f"Database connection error: {err}")
 
 
 # Models for User Registration and Login
@@ -169,7 +171,7 @@ async def register_user(user: UserCreateRequest):
     # Hash the password
     hashed_password = hash_password(user.password)
 
-    # Insert user into the `user` table, relying on DB defaults for optional fields
+    # Insert user into the user table, relying on DB defaults for optional fields
     cursor.execute(
         """
         INSERT INTO user (first_name, last_name, email, password)
@@ -522,7 +524,7 @@ async def add_vehicle(
         # Insert the vehicle record
         cursor.execute(
             """
-            INSERT INTO vehicles (manufacturer, model, year, price, mileage, `condition`, city, state, description, listing_date)
+            INSERT INTO vehicles (manufacturer, model, year, price, mileage, condition, city, state, description, listing_date)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
@@ -1739,3 +1741,132 @@ def reset_user_password(user_id: int):
     finally:
         cursor.close()
         connection.close()
+
+# Admin Reports +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Reports and Complaints Handling
+class ReportUpdateRequest(BaseModel):
+    status: Optional[str] = None
+    action_taken: Optional[str] = None
+
+# Fetch all reports
+@app.get("/admin/reports")
+def get_all_reports():
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        # Modified query to only include existing columns
+        query = """
+            SELECT r.report_ID,
+                   r.description,
+                   r.report_date,
+                   r.status,
+                   r.reported_user,
+                   r.reported_by,
+                   CONCAT(u.first_name, ' ', u.last_name) as reported_user_name
+            FROM reports r
+            JOIN user u ON r.reported_user = u.user_ID
+            ORDER BY r.report_date DESC
+        """
+        cursor.execute(query)
+        reports = cursor.fetchall()
+        
+        # Convert datetime objects to strings
+        for report in reports:
+            if report.get('report_date'):
+                report['report_date'] = report['report_date'].isoformat()
+        
+        return {"reports": reports}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# Fetch a specific report by ID
+@app.get("/admin/reports/{report_id}")
+async def get_report_details(report_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT * FROM reports WHERE report_id = %s", (report_id,))
+        report = cursor.fetchone()
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found")
+        return {"report": report}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+# Update report status and take action
+@app.put("/admin/reports/{report_id}")
+async def update_report(report_id: int, update_request: ReportUpdateRequest):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        # Update the report status
+        update_fields = []
+        values = []
+        if update_request.status is not None:
+            update_fields.append("status = %s")
+            values.append(update_request.status)
+        if update_request.action_taken is not None:
+            update_fields.append("action_taken = %s")
+            values.append(update_request.action_taken)
+
+        if not update_fields:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        values.append(report_id)
+        query = f"UPDATE reports SET {', '.join(update_fields)} WHERE report_id = %s"
+        cursor.execute(query, tuple(values))
+        connection.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Report not found")
+        return {"message": "Report updated successfully"}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+# Delete a report
+@app.delete("/admin/reports/{report_id}")
+async def delete_report(report_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("DELETE FROM reports WHERE report_id = %s", (report_id,))
+        connection.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Report not found")
+        return {"message": "Report deleted successfully"}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+class ReportCreateRequest(BaseModel):
+    reported_user: int
+    reported_by: int
+    description: str
+
+@app.post("/create_report")
+def create_report(report_data: ReportCreateRequest):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        query = """
+            INSERT INTO reports (reported_user, reported_by, description, status)
+            VALUES (%s, %s, %s, %s)
+        """
+        cursor.execute(query, (report_data.reported_user, report_data.reported_by, report_data.description, 'Pending'))
+        conn.commit()
+        return {"message": "Report created successfully"}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        conn.close()

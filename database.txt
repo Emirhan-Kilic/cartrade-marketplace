@@ -223,6 +223,7 @@ CREATE TABLE reports (
     description TEXT NOT NULL,
     report_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status ENUM('Pending', 'In Review', 'Resolved') DEFAULT 'Pending',
+    action_taken TEXT,  
     reported_user INT NOT NULL,
     reported_by INT NOT NULL,
     FOREIGN KEY (reported_user) REFERENCES user(user_ID) ON DELETE CASCADE,
