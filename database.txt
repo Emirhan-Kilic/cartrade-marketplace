@@ -114,6 +114,9 @@ CREATE TABLE ads (
                      CHECK (expiry_date > post_date)
 );
 
+ALTER TABLE ads 
+MODIFY COLUMN status ENUM('Pending', 'Active', 'Inactive', 'Expired', 'Sold', 'Rejected') 
+DEFAULT 'Pending' NOT NULL;
 
 CREATE TABLE offer (
                        offer_ID INT PRIMARY KEY AUTO_INCREMENT,

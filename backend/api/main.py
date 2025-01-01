@@ -62,17 +62,15 @@ if missing_vars:
 # Create a function to get the database connection
 def get_db_connection():
     try:
-        conn = mysql.connector.connect(
-            user=DB_CONFIG['user'],
-            password=DB_CONFIG['password'],
-            host=DB_CONFIG['host'],
-            database=DB_CONFIG['database'],
-            port=DB_CONFIG['port'],
-            **(ssl_config if ssl_config else {})
+        connection = mysql.connector.connect(
+            **DB_CONFIG,
+            ssl_ca=ssl_config.get('ssl_ca', None) if ssl_config else None,
+            ssl_verify_cert=ssl_config.get('ssl_verify_cert', False) if ssl_config else False,
+            ssl_disabled=ssl_config.get('ssl_disabled', False) if ssl_config else False
         )
-        return conn
+        return connection
     except mysql.connector.Error as err:
-        raise HTTPException(status_code=500, detail=f"Database connection error: {err}")
+        raise HTTPException(status_code=500, detail=f"Database connection failed: {err}")
 
 
 # Models for User Registration and Login
@@ -171,7 +169,7 @@ async def register_user(user: UserCreateRequest):
     # Hash the password
     hashed_password = hash_password(user.password)
 
-    # Insert user into the user table, relying on DB defaults for optional fields
+    # Insert user into the `user` table, relying on DB defaults for optional fields
     cursor.execute(
         """
         INSERT INTO user (first_name, last_name, email, password)
@@ -524,7 +522,7 @@ async def add_vehicle(
         # Insert the vehicle record
         cursor.execute(
             """
-            INSERT INTO vehicles (manufacturer, model, year, price, mileage, condition, city, state, description, listing_date)
+            INSERT INTO vehicles (manufacturer, model, year, price, mileage, `condition`, city, state, description, listing_date)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
@@ -1742,6 +1740,217 @@ def reset_user_password(user_id: int):
         cursor.close()
         connection.close()
 
+
+""" ************************************** Admin Page v.0.1 ************************************************ """
+# A model for Admin updates
+class AdminUserUpdateRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+    rating: Optional[float] = None
+    active: Optional[bool] = None
+
+# 1. GET ALL USERS
+@app.get("/admin/users")
+def get_all_users():
+    """
+    Retrieves all users with basic info.
+    NOTE: We are NOT restricting this endpoint to admin only, for your testing purposes.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT
+                user_ID, first_name, last_name, email,
+                phone_number, address, rating, active, join_date
+            FROM user
+        """)
+        users = cursor.fetchall()
+        return {"users": users}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 2. (Optional) GET USER DETAILS
+@app.get("/admin/users/{user_id}")
+def get_user_details(user_id: int):
+    """
+    Retrieves detailed info for a specific user by ID.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT
+                user_ID, first_name, last_name, email,
+                phone_number, address, rating, active, join_date
+            FROM user
+            WHERE user_ID = %s
+        """, (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"user": user}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 3. UPDATE USER FIELDS
+@app.put("/admin/users/{user_id}")
+def admin_update_user(user_id: int, user_update: AdminUserUpdateRequest):
+    """
+    Allows Admin to update user info: name, email, phone, address, rating, etc.
+    We do NOT check roles so anyone can call it for your testing scenario.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        fields = []
+        values = []
+
+        if user_update.first_name is not None:
+            fields.append("first_name = %s")
+            values.append(user_update.first_name)
+        if user_update.last_name is not None:
+            fields.append("last_name = %s")
+            values.append(user_update.last_name)
+        if user_update.email is not None:
+            # Optionally, check uniqueness or validity
+            fields.append("email = %s")
+            values.append(user_update.email)
+        if user_update.phone_number is not None:
+            fields.append("phone_number = %s")
+            values.append(user_update.phone_number)
+        if user_update.address is not None:
+            fields.append("address = %s")
+            values.append(user_update.address)
+        if user_update.rating is not None:
+            fields.append("rating = %s")
+            values.append(user_update.rating)
+        if user_update.active is not None:
+            fields.append("active = %s")
+            values.append(user_update.active)
+
+        if not fields:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        # Add user_id to the end for the WHERE clause
+        values.append(user_id)
+        query = f"""
+            UPDATE user
+            SET {', '.join(fields)}
+            WHERE user_ID = %s
+        """
+        cursor.execute(query, tuple(values))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found or no changes made")
+
+        return {"message": "User updated successfully"}
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 4. DEACTIVATE USER
+@app.put("/admin/users/{user_id}/deactivate")
+def deactivate_user(user_id: int):
+    """
+    Sets a user's 'active' field to False.
+    No role check here for your dev/testing convenience.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("""
+            UPDATE user
+            SET active = FALSE
+            WHERE user_ID = %s
+        """, (user_id,))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found or already inactive")
+
+        return {"message": "User account deactivated"}
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 5. DEACTIVATE USER
+@app.put("/admin/users/{user_id}/reactivate")
+def reactivate_user(user_id: int):
+    """
+    Sets a user's 'active' field to True.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("""
+            UPDATE user
+            SET active = TRUE
+            WHERE user_ID = %s
+        """, (user_id,))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found or already active")
+
+        return {"message": "User account reactivated"}
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 6. RESET USER PASSWORD
+@app.put("/admin/users/{user_id}/reset-password")
+def reset_user_password(user_id: int):
+    """
+    Resets a user's password to a placeholder or random string.
+    We do NOT restrict access here, for your dev/testing purposes.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        new_password = "NewP@ss123"  # For demonstration only
+        hashed_password = hash_password(new_password)  
+
+        cursor.execute("""
+            UPDATE user
+            SET password = %s
+            WHERE user_ID = %s
+        """, (hashed_password, user_id))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {
+            "message": "Password reset successfully",
+            "new_password": new_password
+        }
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
 # Admin Reports +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # Reports and Complaints Handling
 class ReportUpdateRequest(BaseModel):
@@ -1870,3 +2079,146 @@ def create_report(report_data: ReportCreateRequest):
     finally:
         cursor.close()
         conn.close()
+
+# Admin Pending Ads Section
+@app.get("/admin/pending-ads")
+def get_pending_ads():
+    """
+    Get all pending ads with complete vehicle, owner, and photo information.
+    Used by admins to review new ads.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT 
+                -- Ad details
+                a.ad_ID, a.post_date, a.expiry_date, a.is_premium, a.status,
+                
+                -- Vehicle basic info
+                v.vehicle_ID, v.manufacturer, v.model, v.year, v.price, 
+                v.mileage, v.condition, v.city, v.state, v.description,
+                
+                -- Vehicle type-specific details
+                c.number_of_doors, c.seating_capacity, c.transmission,
+                m.engine_capacity, m.bike_type,
+                t.cargo_capacity, t.has_towing_package,
+                
+                -- Owner information
+                a.owner as owner_id,
+                u.first_name as owner_first_name, 
+                u.last_name as owner_last_name,
+                u.email as owner_email,
+                
+                -- Vehicle type determination
+                CASE
+                    WHEN c.vehicle_ID IS NOT NULL THEN 'car'
+                    WHEN m.vehicle_ID IS NOT NULL THEN 'motorcycle'
+                    WHEN t.vehicle_ID IS NOT NULL THEN 'truck'
+                    ELSE 'unknown'
+                END AS vehicle_type,
+                
+                -- Photo URLs as comma-separated list
+                GROUP_CONCAT(DISTINCT vp.photo_url) as photo_urls
+                
+            FROM ads a
+            -- Join with vehicles table
+            JOIN vehicles v ON a.associated_vehicle = v.vehicle_ID
+            
+            -- Join with owner information
+            JOIN user u ON a.owner = u.user_ID
+            
+            -- Left joins with vehicle type tables
+            LEFT JOIN car c ON v.vehicle_ID = c.vehicle_ID
+            LEFT JOIN motorcycle m ON v.vehicle_ID = m.vehicle_ID
+            LEFT JOIN truck t ON v.vehicle_ID = t.vehicle_ID
+            
+            -- Left join with photos
+            LEFT JOIN vehicle_photos vp ON v.vehicle_ID = vp.vehicle_ID
+            
+            -- Only get pending ads
+            WHERE a.status = 'Pending'
+            
+            -- Group by ad to handle multiple photos
+            GROUP BY a.ad_ID, v.vehicle_ID, c.vehicle_ID, m.vehicle_ID, t.vehicle_ID
+            
+            -- Sort by newest first
+            ORDER BY a.post_date DESC
+        """)
+        
+        ads = cursor.fetchall()
+        
+        # Process photo URLs from comma-separated string to array
+        for ad in ads:
+            if ad.get('photo_urls'):
+                ad['photos'] = ad['photo_urls'].split(',')
+                del ad['photo_urls']
+            else:
+                ad['photos'] = []
+                
+        return {"ads": ads}
+        
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+@app.put("/admin/ads/{ad_id}/{action}")
+def update_ad_status(ad_id: int, action: str):
+    """
+    Update ad status based on admin review.
+    
+    Parameters:
+    - ad_id: ID of the ad to update
+    - action: Either 'approve' or 'reject'
+    
+    Returns:
+    - Success message if status updated
+    """
+    if action not in ['approve', 'reject']:
+        raise HTTPException(status_code=400, detail="Invalid action. Must be 'approve' or 'reject'")
+    
+    status = 'Active' if action == 'approve' else 'Rejected'
+    
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        # First check if ad exists and is in pending state
+        cursor.execute("""
+            SELECT status 
+            FROM ads 
+            WHERE ad_ID = %s
+        """, (ad_id,))
+        
+        result = cursor.fetchone()
+        if not result:
+            raise HTTPException(status_code=404, detail="Ad not found")
+            
+        if result[0] != 'Pending':
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot {action} ad. Current status is {result[0]}"
+            )
+        
+        # Update the ad status
+        cursor.execute("""
+            UPDATE ads
+            SET status = %s
+            WHERE ad_ID = %s
+        """, (status, ad_id))
+        
+        connection.commit()
+        
+        return {
+            "message": f"Ad {action}d successfully",
+            "ad_id": ad_id,
+            "new_status": status
+        }
+        
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()

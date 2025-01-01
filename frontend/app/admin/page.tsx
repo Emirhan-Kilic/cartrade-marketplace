@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar"; // Adjust path if needed
+import PendingAdsSection from "./PendingAdsSection"; // Adjust path if needed
 
 interface UserData {
   user_ID: number;
@@ -374,6 +375,9 @@ export default function AdminPage() {
             )}
           </div>
         )}
+
+        {activeTab === "pending" && <PendingAdsSection />}
+
       </section>
 
       {/* MODAL for User Details */}
