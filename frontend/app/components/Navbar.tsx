@@ -25,7 +25,7 @@ export default function Navbar() {
                 {/* Logo */}
                 <div className="text-3xl font-bold tracking-tight text-blue-600">
                     <Link
-                        href="/"
+                        href="/browseAds"
                         className="transition duration-300 ease-in-out transform hover:scale-105 px-4 py-2 border border-transparent rounded-full hover:text-black"
                     >
                         <span className="text-yellow-400">Car</span>Trade

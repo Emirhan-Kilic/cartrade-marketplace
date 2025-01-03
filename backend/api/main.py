@@ -12,6 +12,11 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 from fastapi import HTTPException
 from datetime import datetime, timedelta
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from typing import Optional
+from datetime import date, datetime
+from pydantic import BaseModel
+
 
 # Load environment variables
 load_dotenv()
@@ -221,7 +226,7 @@ async def login(user: UserLoginRequest):
     cursor = connection.cursor(dictionary=True)
 
     # Query to check if the user exists in the user table
-    cursor.execute("SELECT * FROM user WHERE email = %s", (user.email,))
+    cursor.execute("SELECT * FROM active_user WHERE email = %s", (user.email,))
     existing_user = cursor.fetchone()
 
     if not existing_user or not verify_password(user.password, existing_user['password']):
@@ -277,7 +282,7 @@ async def view_user_profile(user_id: int):
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM user WHERE user_ID = %s", (user_id,))
+    cursor.execute("SELECT * FROM active_user WHERE user_ID = %s", (user_id,))
     user = cursor.fetchone()
     cursor.close()
     connection.close()
@@ -318,7 +323,7 @@ async def update_user_profile(user_id: int, user: UserProfileUpdateRequest):
 
     # Check if the provided email already exists for a different user
     if user.email:
-        cursor.execute("SELECT * FROM user WHERE email = %s AND user_ID != %s", (user.email, user_id))
+        cursor.execute("SELECT * FROM active_user WHERE email = %s AND user_ID != %s", (user.email, user_id))
         if cursor.fetchone():
             cursor.close()
             connection.close()
@@ -384,7 +389,7 @@ async def update_user_balance(user_id: int, balance_update: BalanceUpdateRequest
     cursor = connection.cursor(dictionary=True)
 
     # Fetch the current balance of the user
-    cursor.execute("SELECT balance FROM user WHERE user_ID = %s", (user_id,))
+    cursor.execute("SELECT balance FROM active_user WHERE user_ID = %s", (user_id,))
     user = cursor.fetchone()
 
     if not user:
@@ -429,7 +434,7 @@ async def deduct_balance_for_premium(user_id: int):
     cursor = connection.cursor(dictionary=True)
 
     # Fetch the current balance of the user
-    cursor.execute("SELECT balance FROM user WHERE user_ID = %s", (user_id,))
+    cursor.execute("SELECT balance FROM active_user WHERE user_ID = %s", (user_id,))
     user = cursor.fetchone()
 
     if not user:
@@ -462,7 +467,7 @@ async def get_user_balance(user_id: int):
     cursor = connection.cursor(dictionary=True)
 
     # Fetch the current balance of the user
-    cursor.execute("SELECT balance FROM user WHERE user_ID = %s", (user_id,))
+    cursor.execute("SELECT balance FROM active_user WHERE user_ID = %s", (user_id,))
     user = cursor.fetchone()
 
     cursor.close()
@@ -616,40 +621,45 @@ class AdCreate(BaseModel):
     is_premium: Optional[bool] = False
     associated_vehicle: int
     owner: int
+    status: str = "Pending"
 
 
 @app.post("/add_ad/")
 async def add_ad(ad: AdCreate):
+    print(f"Received ad status: {ad.status}") 
+    # Validate the status field to ensure it matches the ENUM values in the database
+    valid_statuses = ['Pending', 'Active', 'Inactive', 'Expired', 'Sold', 'Rejected']
+    if ad.status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status: {ad.status}. Allowed values are: {', '.join(valid_statuses)}"
+        )
+
+    # Set a default status if not provided
+    if not ad.status:
+        ad.status = "Pending"
+
     connection = get_db_connection()
     cursor = connection.cursor()
 
     try:
-        # Debug print to confirm the received data
-        print(f"Attempting to insert ad with vehicle ID={ad.associated_vehicle} and owner ID={ad.owner}")
-
         # Calculate expiry date based on premium status
         current_date = datetime.now()
-        if ad.is_premium:
-            expiry_date = current_date + timedelta(weeks=52)  # 12 months
-        else:
-            expiry_date = current_date + timedelta(weeks=12)  # 3 months
+        expiry_date = (
+            current_date + timedelta(weeks=52) if ad.is_premium else current_date + timedelta(weeks=12)
+        )
 
-        # Insert the ad record
+        # Insert the ad record into the database
         cursor.execute(
             """
-            INSERT INTO ads (expiry_date, is_premium, associated_vehicle, owner)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO ads (expiry_date, is_premium, associated_vehicle, owner, status)
+            VALUES (%s, %s, %s, %s, %s)
             """,
-            (
-                expiry_date,
-                ad.is_premium,
-                ad.associated_vehicle,
-                ad.owner
-            )
+            (expiry_date, ad.is_premium, ad.associated_vehicle, ad.owner, ad.status)
         )
         connection.commit()
 
-        # Fetch the ad ID of the newly inserted ad
+        # Fetch the newly created ad ID
         cursor.execute("SELECT LAST_INSERT_ID()")
         ad_id = cursor.fetchone()[0]
 
@@ -658,6 +668,7 @@ async def add_ad(ad: AdCreate):
     except mysql.connector.Error as err:
         connection.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
+
     finally:
         cursor.close()
         connection.close()
@@ -819,7 +830,7 @@ async def get_other_user_ads(user_id: int):
             LEFT JOIN motorcycle m ON v.vehicle_ID = m.vehicle_ID
             LEFT JOIN truck t ON v.vehicle_ID = t.vehicle_ID
             JOIN ads a ON v.vehicle_ID = a.associated_vehicle
-            JOIN user u ON a.owner = u.user_ID
+            JOIN active_user u ON a.owner = u.user_ID
             WHERE a.owner != %s
         """, (user_id,))
 
@@ -1010,7 +1021,7 @@ async def get_user_wishlist(user_id: int):
             LEFT JOIN car c ON v.vehicle_ID = c.vehicle_ID
             LEFT JOIN motorcycle m ON v.vehicle_ID = m.vehicle_ID
             LEFT JOIN truck t ON v.vehicle_ID = t.vehicle_ID
-            JOIN user u ON a.owner = u.user_ID
+            JOIN active_user u ON a.owner = u.user_ID
             WHERE w.user_ID = %s
         """, (user_id,))
 
@@ -1142,7 +1153,7 @@ async def get_offers_for_ad(ad_id: int):
             JOIN 
                 vehicles v ON a.associated_vehicle = v.vehicle_ID
             JOIN 
-                user u ON o.offer_owner = u.user_ID
+                active_user u ON o.offer_owner = u.user_ID
             WHERE 
                 o.sent_to = %s
             ORDER BY 
@@ -1380,9 +1391,9 @@ async def get_user_transactions(user_id: int):
                 v.manufacturer, v.model, v.year
             FROM transactions t
             LEFT JOIN ads a ON t.belonged_ad = a.ad_ID
-            LEFT JOIN user pb ON t.paid_by = pb.user_ID
-            LEFT JOIN user ab ON t.approved_by = ab.user_ID
-            LEFT JOIN user os ON a.owner = os.user_ID
+            LEFT JOIN active_user pb ON t.paid_by = pb.user_ID
+            LEFT JOIN active_user ab ON t.approved_by = ab.user_ID
+            LEFT JOIN active_user os ON a.owner = os.user_ID
             LEFT JOIN vehicles v ON a.associated_vehicle = v.vehicle_ID
             WHERE t.paid_by = %s OR a.owner = %s
         """, (user_id, user_id))
@@ -1736,6 +1747,666 @@ def reset_user_password(user_id: int):
     except mysql.connector.Error as err:
         connection.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+""" ************************************** Admin Page v.0.1 ************************************************ """
+# A model for Admin updates
+class AdminUserUpdateRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+    rating: Optional[float] = None
+    active: Optional[bool] = None
+
+# 1. GET ALL USERS
+@app.get("/admin/users")
+def get_all_users():
+    """
+    Retrieves all users with basic info.
+    NOTE: We are NOT restricting this endpoint to admin only, for your testing purposes.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT
+                user_ID, first_name, last_name, email,
+                phone_number, address, rating, active, join_date
+            FROM user
+        """)
+        users = cursor.fetchall()
+        return {"users": users}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 2. (Optional) GET USER DETAILS
+@app.get("/admin/users/{user_id}")
+def get_user_details(user_id: int):
+    """
+    Retrieves detailed info for a specific user by ID.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT
+                user_ID, first_name, last_name, email,
+                phone_number, address, rating, active, join_date
+            FROM user
+            WHERE user_ID = %s
+        """, (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"user": user}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 3. UPDATE USER FIELDS
+@app.put("/admin/users/{user_id}")
+def admin_update_user(user_id: int, user_update: AdminUserUpdateRequest):
+    """
+    Allows Admin to update user info: name, email, phone, address, rating, etc.
+    We do NOT check roles so anyone can call it for your testing scenario.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        fields = []
+        values = []
+
+        if user_update.first_name is not None:
+            fields.append("first_name = %s")
+            values.append(user_update.first_name)
+        if user_update.last_name is not None:
+            fields.append("last_name = %s")
+            values.append(user_update.last_name)
+        if user_update.email is not None:
+            # Optionally, check uniqueness or validity
+            fields.append("email = %s")
+            values.append(user_update.email)
+        if user_update.phone_number is not None:
+            fields.append("phone_number = %s")
+            values.append(user_update.phone_number)
+        if user_update.address is not None:
+            fields.append("address = %s")
+            values.append(user_update.address)
+        if user_update.rating is not None:
+            fields.append("rating = %s")
+            values.append(user_update.rating)
+        if user_update.active is not None:
+            fields.append("active = %s")
+            values.append(user_update.active)
+
+        if not fields:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        # Add user_id to the end for the WHERE clause
+        values.append(user_id)
+        query = f"""
+            UPDATE user
+            SET {', '.join(fields)}
+            WHERE user_ID = %s
+        """
+        cursor.execute(query, tuple(values))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found or no changes made")
+
+        return {"message": "User updated successfully"}
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 4. DEACTIVATE USER
+@app.put("/admin/users/{user_id}/deactivate")
+def deactivate_user(user_id: int):
+    """
+    Sets a user's 'active' field to False.
+    No role check here for your dev/testing convenience.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("""
+            UPDATE user
+            SET active = FALSE
+            WHERE user_ID = %s
+        """, (user_id,))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found or already inactive")
+
+        return {"message": "User account deactivated"}
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 5. DEACTIVATE USER
+@app.put("/admin/users/{user_id}/reactivate")
+def reactivate_user(user_id: int):
+    """
+    Sets a user's 'active' field to True.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("""
+            UPDATE user
+            SET active = TRUE
+            WHERE user_ID = %s
+        """, (user_id,))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found or already active")
+
+        return {"message": "User account reactivated"}
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# 6. RESET USER PASSWORD
+@app.put("/admin/users/{user_id}/reset-password")
+def reset_user_password(user_id: int):
+    """
+    Resets a user's password to a placeholder or random string.
+    We do NOT restrict access here, for your dev/testing purposes.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        new_password = "NewP@ss123"  # For demonstration only
+        hashed_password = hash_password(new_password)  
+
+        cursor.execute("""
+            UPDATE user
+            SET password = %s
+            WHERE user_ID = %s
+        """, (hashed_password, user_id))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {
+            "message": "Password reset successfully",
+            "new_password": new_password
+        }
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# Admin Reports +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Reports and Complaints Handling
+class ReportUpdateRequest(BaseModel):
+    status: Optional[str] = None
+    action_taken: Optional[str] = None
+
+# Fetch all reports
+@app.get("/admin/reports")
+def get_all_reports():
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        # Modified query to only include existing columns
+        query = """
+            SELECT r.report_ID,
+                   r.description,
+                   r.report_date,
+                   r.status,
+                   r.reported_user,
+                   r.reported_by,
+                   CONCAT(u.first_name, ' ', u.last_name) as reported_user_name
+            FROM reports r
+            JOIN user u ON r.reported_user = u.user_ID
+            ORDER BY r.report_date DESC
+        """
+        cursor.execute(query)
+        reports = cursor.fetchall()
+        
+        # Convert datetime objects to strings
+        for report in reports:
+            if report.get('report_date'):
+                report['report_date'] = report['report_date'].isoformat()
+        
+        return {"reports": reports}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(err)}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# Fetch a specific report by ID
+@app.get("/admin/reports/{report_id}")
+async def get_report_details(report_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT * FROM reports WHERE report_id = %s", (report_id,))
+        report = cursor.fetchone()
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found")
+        return {"report": report}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+# Update report status and take action
+@app.put("/admin/reports/{report_id}")
+async def update_report(report_id: int, update_request: ReportUpdateRequest):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        # Update the report status
+        update_fields = []
+        values = []
+        if update_request.status is not None:
+            update_fields.append("status = %s")
+            values.append(update_request.status)
+        if update_request.action_taken is not None:
+            update_fields.append("action_taken = %s")
+            values.append(update_request.action_taken)
+
+        if not update_fields:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        values.append(report_id)
+        query = f"UPDATE reports SET {', '.join(update_fields)} WHERE report_id = %s"
+        cursor.execute(query, tuple(values))
+        connection.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Report not found")
+        return {"message": "Report updated successfully"}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+# Delete a report
+@app.delete("/admin/reports/{report_id}")
+async def delete_report(report_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("DELETE FROM reports WHERE report_id = %s", (report_id,))
+        connection.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Report not found")
+        return {"message": "Report deleted successfully"}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+class ReportCreateRequest(BaseModel):
+    reported_user: int
+    reported_by: int
+    description: str
+
+@app.post("/create_report")
+def create_report(report_data: ReportCreateRequest):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        query = """
+            INSERT INTO reports (reported_user, reported_by, description, status)
+            VALUES (%s, %s, %s, %s)
+        """
+        cursor.execute(query, (report_data.reported_user, report_data.reported_by, report_data.description, 'Pending'))
+        conn.commit()
+        return {"message": "Report created successfully"}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        conn.close()
+
+# Admin Pending Ads Section
+@app.get("/admin/pending-ads")
+def get_pending_ads():
+    """
+    Get all pending ads with complete vehicle, owner, and photo information.
+    Used by admins to review new ads.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT 
+                -- Ad details
+                a.ad_ID, a.post_date, a.expiry_date, a.is_premium, a.status,
+                
+                -- Vehicle basic info
+                v.vehicle_ID, v.manufacturer, v.model, v.year, v.price, 
+                v.mileage, v.condition, v.city, v.state, v.description,
+                
+                -- Vehicle type-specific details
+                c.number_of_doors, c.seating_capacity, c.transmission,
+                m.engine_capacity, m.bike_type,
+                t.cargo_capacity, t.has_towing_package,
+                
+                -- Owner information
+                a.owner as owner_id,
+                u.first_name as owner_first_name, 
+                u.last_name as owner_last_name,
+                u.email as owner_email,
+                
+                -- Vehicle type determination
+                CASE
+                    WHEN c.vehicle_ID IS NOT NULL THEN 'car'
+                    WHEN m.vehicle_ID IS NOT NULL THEN 'motorcycle'
+                    WHEN t.vehicle_ID IS NOT NULL THEN 'truck'
+                    ELSE 'unknown'
+                END AS vehicle_type,
+                
+                -- Photo URLs as comma-separated list
+                GROUP_CONCAT(DISTINCT vp.photo_url) as photo_urls
+                
+            FROM ads a
+            -- Join with vehicles table
+            JOIN vehicles v ON a.associated_vehicle = v.vehicle_ID
+            
+            -- Join with owner information
+            JOIN active_user u ON a.owner = u.user_ID
+            
+            -- Left joins with vehicle type tables
+            LEFT JOIN car c ON v.vehicle_ID = c.vehicle_ID
+            LEFT JOIN motorcycle m ON v.vehicle_ID = m.vehicle_ID
+            LEFT JOIN truck t ON v.vehicle_ID = t.vehicle_ID
+            
+            -- Left join with photos
+            LEFT JOIN vehicle_photos vp ON v.vehicle_ID = vp.vehicle_ID
+            
+            -- Only get pending ads
+            WHERE a.status = 'Pending'
+            
+            -- Group by ad to handle multiple photos
+            GROUP BY a.ad_ID, v.vehicle_ID, c.vehicle_ID, m.vehicle_ID, t.vehicle_ID
+            
+            -- Sort by newest first
+            ORDER BY a.post_date DESC
+        """)
+        
+        ads = cursor.fetchall()
+        
+        # Process photo URLs from comma-separated string to array
+        for ad in ads:
+            if ad.get('photo_urls'):
+                ad['photos'] = ad['photo_urls'].split(',')
+                del ad['photo_urls']
+            else:
+                ad['photos'] = []
+                
+        return {"ads": ads}
+        
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+@app.put("/admin/ads/{ad_id}/{action}")
+def update_ad_status(ad_id: int, action: str):
+    """
+    Update ad status based on admin review.
+    
+    Parameters:
+    - ad_id: ID of the ad to update
+    - action: Either 'approve' or 'reject'
+    
+    Returns:
+    - Success message if status updated
+    """
+    if action not in ['approve', 'reject']:
+        raise HTTPException(status_code=400, detail="Invalid action. Must be 'approve' or 'reject'")
+    
+    status = 'Active' if action == 'approve' else 'Rejected'
+    
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    try:
+        # First check if ad exists and is in pending state
+        cursor.execute("""
+            SELECT status 
+            FROM ads 
+            WHERE ad_ID = %s
+        """, (ad_id,))
+        
+        result = cursor.fetchone()
+        if not result:
+            raise HTTPException(status_code=404, detail="Ad not found")
+            
+        if result[0] != 'Pending':
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot {action} ad. Current status is {result[0]}"
+            )
+        
+        # Update the ad status
+        cursor.execute("""
+            UPDATE ads
+            SET status = %s
+            WHERE ad_ID = %s
+        """, (status, ad_id))
+        
+        connection.commit()
+        
+        return {
+            "message": f"Ad {action}d successfully",
+            "ad_id": ad_id,
+            "new_status": status
+        }
+        
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# Inspector Profile ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++4
+# Models for Inspector functionalities""
+
+# Models for Inspector functionalities
+class InspectionCreate(BaseModel):
+    vehicle_id: int
+    inspection_date: date
+    report: str
+    result: str = "Pending"
+    related_certification: Optional[int] = None
+
+# Get inspector's pending inspections
+@app.get("/api/inspector/{inspector_id}/pending-inspections")
+async def get_pending_inspections(inspector_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    
+    try:
+        # Get vehicles that need inspection
+        cursor.execute("""
+            SELECT v.*, a.ad_ID, a.status as ad_status 
+            FROM vehicles v
+            JOIN ads a ON v.vehicle_ID = a.associated_vehicle
+            WHERE a.status = 'Pending'
+            ORDER BY v.listing_date DESC
+        """)
+        
+        vehicles = cursor.fetchall()
+        return {"vehicles": vehicles}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+# Submit inspection report
+@app.post("/api/inspector/submit-report")
+async def submit_inspection_report(
+    vehicle_id: int = Form(...),
+    report: str = Form(...),
+    result: str = Form(...),
+    inspector_id: int = Form(...),
+    report_file: Optional[UploadFile] = File(None)
+):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    
+    try:
+        # Get next inspection ID
+        cursor.execute("SELECT MAX(inspection_ID) FROM inspections")
+        next_id = (cursor.fetchone()[0] or 0) + 1
+
+        # Insert inspection record
+        cursor.execute("""
+            INSERT INTO inspections (
+                inspection_ID, vehicle_ID, inspection_date,
+                report, result, done_by
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+        """, (
+            next_id,
+            vehicle_id,
+            date.today(),
+            report,
+            result,
+            inspector_id
+        ))
+
+        # Update vehicle ad status based on inspection result
+        new_status = "Active" if result == "Passed" else "Rejected"
+        cursor.execute("""
+            UPDATE ads
+            SET status = %s
+            WHERE associated_vehicle = %s
+        """, (new_status, vehicle_id))
+
+        # Update inspector's inspection count
+        cursor.execute("""
+            UPDATE inspector
+            SET number_of_inspections = number_of_inspections + 1
+            WHERE user_id = %s
+        """, (inspector_id,))
+
+        connection.commit()
+        return {"message": "Inspection report submitted successfully", "inspection_id": next_id}
+        
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+# Get inspector's completed inspections
+@app.get("/api/inspector/{inspector_id}/inspections")
+async def get_inspector_inspections(inspector_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("""
+            SELECT i.*, v.manufacturer, v.model, v.year,
+                   v.price, v.mileage, v.condition
+            FROM inspections i
+            JOIN vehicles v ON i.vehicle_ID = v.vehicle_ID
+            WHERE i.done_by = %s
+            ORDER BY i.inspection_date DESC
+        """, (inspector_id,))
+        
+        inspections = cursor.fetchall()
+        return {"inspections": inspections}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+# Issue certification for a vehicle
+@app.post("/api/inspector/issue-certification")
+async def issue_certification(
+    inspection_id: int,
+    vehicle_id: int,
+    expiry_date: date
+):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    
+    try:
+        # First check if inspection passed
+        cursor.execute("""
+            SELECT result FROM inspections
+            WHERE inspection_ID = %s AND vehicle_ID = %s
+        """, (inspection_id, vehicle_id))
+        
+        result = cursor.fetchone()
+        if not result or result[0] != "Passed":
+            raise HTTPException(
+                status_code=400,
+                detail="Vehicle must pass inspection before certification"
+            )
+
+        # Create certification
+        cursor.execute("""
+            INSERT INTO certification (
+                certification_date,
+                expiry_date
+            ) VALUES (%s, %s)
+        """, (date.today(), expiry_date))
+        
+        certification_id = cursor.lastrowid
+
+        # Link certification to inspection
+        cursor.execute("""
+            UPDATE inspections
+            SET related_certification = %s
+            WHERE inspection_ID = %s AND vehicle_ID = %s
+        """, (certification_id, inspection_id, vehicle_id))
+
+        # Update inspector's certification count
+        cursor.execute("""
+            UPDATE inspector
+            SET number_of_certificates = number_of_certificates + 1
+            WHERE user_id = (
+                SELECT done_by FROM inspections 
+                WHERE inspection_ID = %s AND vehicle_ID = %s
+            )
+        """, (inspection_id, vehicle_id))
+
+        connection.commit()
+        return {"message": "Certification issued successfully", "certification_id": certification_id}
+        
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(err))
     finally:
         cursor.close()
         connection.close()

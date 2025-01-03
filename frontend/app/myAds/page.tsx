@@ -5,21 +5,30 @@ import Navbar from '../components/Navbar';
 import VehicleDetailsModal from './VehicleDetailsModal';
 import VehicleOffersModal from './VehicleOffersModal';
 import AddVehicleModal from './AddVehicleModal';
+interface VehicleForm {
+    manufacturer: string;
+    model: string;
+    year: number;
+    price: number;
+    mileage: number;
+    condition: 'new' | 'used' | 'certified pre-owned';
+    city: string;
+    state: string;
+    description: string;
+    vehicleType: 'car' | 'motorcycle' | 'truck';
+    numberOfDoors?: number;
+    seatingCapacity?: number;
+    transmission?: 'manual' | 'automatic' | 'semi-automatic' | 'CVT';
+    engineCapacity?: number;
+    bikeType?: 'Cruiser' | 'Sport' | 'Touring' | 'Naked' | 'Adventure';
+    cargoCapacity?: number;
+    hasTowingPackage?: boolean;
+}
 
 export default function SellerDashboard() {
     const [vehicles, setVehicles] = useState<any[]>([]);
     const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
     const [isModalOpen, setIsModalOpen] = useState<string | null>(null);
-    const [newVehicle, setNewVehicle] = useState({
-        manufacturer: '',
-        model: '',
-        price: '',
-        year: '',
-        mileage: '',
-        photo: '',
-        vehicleType: '',
-    });
-
     const [vehicleOffers, setVehicleOffers] = useState<any[]>([]);
 
     // Fetch vehicles data from the API on component mount
@@ -28,7 +37,7 @@ export default function SellerDashboard() {
         if (userId) {
             const fetchVehicles = async () => {
                 try {
-                    const response = await fetch(`http://localhost:8000/user/${userId}/vehicles`);
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/${userId}/vehicles`);
                     const data = await response.json();
                     if (response.ok && data.vehicles) {
                         setVehicles(data.vehicles);
@@ -57,21 +66,24 @@ export default function SellerDashboard() {
     const closeModal = () => {
         setIsModalOpen(null);
         setSelectedVehicle(null);
-        setNewVehicle({
-            manufacturer: '',
-            model: '',
-            price: '',
-            year: '',
-            mileage: '',
-            photo: '',
-            vehicleType: '',
-        });
         setVehicleOffers([]);
+        // Refresh the vehicles list after closing the modal
+        const userId = sessionStorage.getItem('userId');
+        if (userId) {
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/${userId}/vehicles`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.vehicles) {
+                        setVehicles(data.vehicles);
+                    }
+                })
+                .catch(error => console.error('Error fetching vehicles:', error));
+        }
     };
 
     const fetchVehicleOffers = async (adId: number) => {
         try {
-            const response = await fetch(`http://localhost:8000/ad/${adId}/offers`);
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ad/${adId}/offers`);
             const data = await response.json();
             if (response.ok && data.offers) {
                 setVehicleOffers(data.offers);
@@ -96,7 +108,7 @@ export default function SellerDashboard() {
         }
 
         try {
-            const response = await fetch(`http://localhost:8000/delete_ad/${adId}`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/delete_ad/${adId}`, {
                 method: 'DELETE',
             });
 
@@ -115,13 +127,18 @@ export default function SellerDashboard() {
         }
     };
 
-    const handleAddVehicle = (e: React.FormEvent) => {
-        e.preventDefault();
-        const newVehicleData = {
-            vehicle_ID: vehicles.length + 1,
-            ...newVehicle,
-        };
-        setVehicles([...vehicles, newVehicleData]);
+    const handleAddVehicle = (vehicleData: VehicleForm) => {
+        const userId = sessionStorage.getItem('userId');
+        if (userId) {
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/${userId}/vehicles`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.vehicles) {
+                        setVehicles(data.vehicles);
+                    }
+                })
+                .catch(error => console.error('Error fetching updated vehicles:', error));
+        }
         closeModal();
     };
 
@@ -162,6 +179,7 @@ export default function SellerDashboard() {
                                         <h3 className="text-xl font-bold mb-2">{`${vehicle.manufacturer} ${vehicle.model}`}</h3>
                                         <p className="text-sm text-gray-500 mb-2">{`${vehicle.city}, ${vehicle.state}`}</p>
                                         <p className="text-lg font-semibold text-blue-600 mb-4">${vehicle.price.toLocaleString()}</p>
+                                        <p className="text-sm text-gray-500 mb-2">Status: {vehicle.status}</p>
 
                                         <div className="flex space-x-4">
                                             <button
@@ -194,7 +212,7 @@ export default function SellerDashboard() {
                 </div>
             </section>
 
-            {/* Modals for adding vehicle, vehicle details, and vehicle offers */}
+            {/* Modals */}
             {isModalOpen === 'addVehicle' && (
                 <AddVehicleModal isOpen={true} onClose={closeModal} onSubmit={handleAddVehicle}/>
             )}

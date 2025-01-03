@@ -13,6 +13,11 @@ CREATE TABLE user (
                       active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
+CREATE VIEW active_user AS
+SELECT *
+FROM user
+WHERE active = TRUE;
+
 CREATE TABLE vehicles (
                           vehicle_ID INT PRIMARY KEY AUTO_INCREMENT,
                           manufacturer VARCHAR(50) NOT NULL,
@@ -98,8 +103,6 @@ CREATE TABLE owner_seller (
 );
 
 
-
-
 CREATE TABLE ads (
                      ad_ID INT PRIMARY KEY AUTO_INCREMENT,
                      post_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -114,6 +117,7 @@ CREATE TABLE ads (
                      CHECK (expiry_date > post_date)
 );
 
+ALTER TABLE ads MODIFY COLUMN status ENUM('Pending', 'Active', 'Inactive', 'Expired', 'Sold', 'Rejected') DEFAULT 'Pending' NOT NULL;
 
 CREATE TABLE offer (
                        offer_ID INT PRIMARY KEY AUTO_INCREMENT,
@@ -223,6 +227,7 @@ CREATE TABLE reports (
     description TEXT NOT NULL,
     report_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status ENUM('Pending', 'In Review', 'Resolved') DEFAULT 'Pending',
+    action_taken TEXT,  
     reported_user INT NOT NULL,
     reported_by INT NOT NULL,
     FOREIGN KEY (reported_user) REFERENCES user(user_ID) ON DELETE CASCADE,
