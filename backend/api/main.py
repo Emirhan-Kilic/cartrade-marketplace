@@ -12,6 +12,11 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 from fastapi import HTTPException
 from datetime import datetime, timedelta
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from typing import Optional
+from datetime import date, datetime
+from pydantic import BaseModel
+
 
 # Load environment variables
 load_dotenv()
@@ -2225,6 +2230,183 @@ def update_ad_status(ad_id: int, action: str):
     except mysql.connector.Error as err:
         connection.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
+    finally:
+        cursor.close()
+        connection.close()
+
+# Inspector Profile ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++4
+# Models for Inspector functionalities""
+
+# Models for Inspector functionalities
+class InspectionCreate(BaseModel):
+    vehicle_id: int
+    inspection_date: date
+    report: str
+    result: str = "Pending"
+    related_certification: Optional[int] = None
+
+# Get inspector's pending inspections
+@app.get("/api/inspector/{inspector_id}/pending-inspections")
+async def get_pending_inspections(inspector_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    
+    try:
+        # Get vehicles that need inspection
+        cursor.execute("""
+            SELECT v.*, a.ad_ID, a.status as ad_status 
+            FROM vehicles v
+            JOIN ads a ON v.vehicle_ID = a.associated_vehicle
+            WHERE a.status = 'Pending'
+            ORDER BY v.listing_date DESC
+        """)
+        
+        vehicles = cursor.fetchall()
+        return {"vehicles": vehicles}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+# Submit inspection report
+@app.post("/api/inspector/submit-report")
+async def submit_inspection_report(
+    vehicle_id: int = Form(...),
+    report: str = Form(...),
+    result: str = Form(...),
+    inspector_id: int = Form(...),
+    report_file: Optional[UploadFile] = File(None)
+):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    
+    try:
+        # Get next inspection ID
+        cursor.execute("SELECT MAX(inspection_ID) FROM inspections")
+        next_id = (cursor.fetchone()[0] or 0) + 1
+
+        # Insert inspection record
+        cursor.execute("""
+            INSERT INTO inspections (
+                inspection_ID, vehicle_ID, inspection_date,
+                report, result, done_by
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+        """, (
+            next_id,
+            vehicle_id,
+            date.today(),
+            report,
+            result,
+            inspector_id
+        ))
+
+        # Update vehicle ad status based on inspection result
+        new_status = "Active" if result == "Passed" else "Rejected"
+        cursor.execute("""
+            UPDATE ads
+            SET status = %s
+            WHERE associated_vehicle = %s
+        """, (new_status, vehicle_id))
+
+        # Update inspector's inspection count
+        cursor.execute("""
+            UPDATE inspector
+            SET number_of_inspections = number_of_inspections + 1
+            WHERE user_id = %s
+        """, (inspector_id,))
+
+        connection.commit()
+        return {"message": "Inspection report submitted successfully", "inspection_id": next_id}
+        
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+# Get inspector's completed inspections
+@app.get("/api/inspector/{inspector_id}/inspections")
+async def get_inspector_inspections(inspector_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("""
+            SELECT i.*, v.manufacturer, v.model, v.year,
+                   v.price, v.mileage, v.condition
+            FROM inspections i
+            JOIN vehicles v ON i.vehicle_ID = v.vehicle_ID
+            WHERE i.done_by = %s
+            ORDER BY i.inspection_date DESC
+        """, (inspector_id,))
+        
+        inspections = cursor.fetchall()
+        return {"inspections": inspections}
+    except mysql.connector.Error as err:
+        raise HTTPException(status_code=500, detail=str(err))
+    finally:
+        cursor.close()
+        connection.close()
+
+# Issue certification for a vehicle
+@app.post("/api/inspector/issue-certification")
+async def issue_certification(
+    inspection_id: int,
+    vehicle_id: int,
+    expiry_date: date
+):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    
+    try:
+        # First check if inspection passed
+        cursor.execute("""
+            SELECT result FROM inspections
+            WHERE inspection_ID = %s AND vehicle_ID = %s
+        """, (inspection_id, vehicle_id))
+        
+        result = cursor.fetchone()
+        if not result or result[0] != "Passed":
+            raise HTTPException(
+                status_code=400,
+                detail="Vehicle must pass inspection before certification"
+            )
+
+        # Create certification
+        cursor.execute("""
+            INSERT INTO certification (
+                certification_date,
+                expiry_date
+            ) VALUES (%s, %s)
+        """, (date.today(), expiry_date))
+        
+        certification_id = cursor.lastrowid
+
+        # Link certification to inspection
+        cursor.execute("""
+            UPDATE inspections
+            SET related_certification = %s
+            WHERE inspection_ID = %s AND vehicle_ID = %s
+        """, (certification_id, inspection_id, vehicle_id))
+
+        # Update inspector's certification count
+        cursor.execute("""
+            UPDATE inspector
+            SET number_of_certificates = number_of_certificates + 1
+            WHERE user_id = (
+                SELECT done_by FROM inspections 
+                WHERE inspection_ID = %s AND vehicle_ID = %s
+            )
+        """, (inspection_id, vehicle_id))
+
+        connection.commit()
+        return {"message": "Certification issued successfully", "certification_id": certification_id}
+        
+    except mysql.connector.Error as err:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(err))
     finally:
         cursor.close()
         connection.close()
