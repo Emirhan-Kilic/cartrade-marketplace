@@ -221,7 +221,7 @@ async def login(user: UserLoginRequest):
     cursor = connection.cursor(dictionary=True)
 
     # Query to check if the user exists in the user table
-    cursor.execute("SELECT * FROM user WHERE email = %s", (user.email,))
+    cursor.execute("SELECT * FROM active_user WHERE email = %s", (user.email,))
     existing_user = cursor.fetchone()
 
     if not existing_user or not verify_password(user.password, existing_user['password']):
@@ -277,7 +277,7 @@ async def view_user_profile(user_id: int):
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM user WHERE user_ID = %s", (user_id,))
+    cursor.execute("SELECT * FROM active_user WHERE user_ID = %s", (user_id,))
     user = cursor.fetchone()
     cursor.close()
     connection.close()
@@ -318,7 +318,7 @@ async def update_user_profile(user_id: int, user: UserProfileUpdateRequest):
 
     # Check if the provided email already exists for a different user
     if user.email:
-        cursor.execute("SELECT * FROM user WHERE email = %s AND user_ID != %s", (user.email, user_id))
+        cursor.execute("SELECT * FROM active_user WHERE email = %s AND user_ID != %s", (user.email, user_id))
         if cursor.fetchone():
             cursor.close()
             connection.close()
@@ -384,7 +384,7 @@ async def update_user_balance(user_id: int, balance_update: BalanceUpdateRequest
     cursor = connection.cursor(dictionary=True)
 
     # Fetch the current balance of the user
-    cursor.execute("SELECT balance FROM user WHERE user_ID = %s", (user_id,))
+    cursor.execute("SELECT balance FROM active_user WHERE user_ID = %s", (user_id,))
     user = cursor.fetchone()
 
     if not user:
@@ -429,7 +429,7 @@ async def deduct_balance_for_premium(user_id: int):
     cursor = connection.cursor(dictionary=True)
 
     # Fetch the current balance of the user
-    cursor.execute("SELECT balance FROM user WHERE user_ID = %s", (user_id,))
+    cursor.execute("SELECT balance FROM active_user WHERE user_ID = %s", (user_id,))
     user = cursor.fetchone()
 
     if not user:
@@ -462,7 +462,7 @@ async def get_user_balance(user_id: int):
     cursor = connection.cursor(dictionary=True)
 
     # Fetch the current balance of the user
-    cursor.execute("SELECT balance FROM user WHERE user_ID = %s", (user_id,))
+    cursor.execute("SELECT balance FROM active_user WHERE user_ID = %s", (user_id,))
     user = cursor.fetchone()
 
     cursor.close()
@@ -825,7 +825,7 @@ async def get_other_user_ads(user_id: int):
             LEFT JOIN motorcycle m ON v.vehicle_ID = m.vehicle_ID
             LEFT JOIN truck t ON v.vehicle_ID = t.vehicle_ID
             JOIN ads a ON v.vehicle_ID = a.associated_vehicle
-            JOIN user u ON a.owner = u.user_ID
+            JOIN active_user u ON a.owner = u.user_ID
             WHERE a.owner != %s
         """, (user_id,))
 
@@ -1016,7 +1016,7 @@ async def get_user_wishlist(user_id: int):
             LEFT JOIN car c ON v.vehicle_ID = c.vehicle_ID
             LEFT JOIN motorcycle m ON v.vehicle_ID = m.vehicle_ID
             LEFT JOIN truck t ON v.vehicle_ID = t.vehicle_ID
-            JOIN user u ON a.owner = u.user_ID
+            JOIN active_user u ON a.owner = u.user_ID
             WHERE w.user_ID = %s
         """, (user_id,))
 
@@ -1148,7 +1148,7 @@ async def get_offers_for_ad(ad_id: int):
             JOIN 
                 vehicles v ON a.associated_vehicle = v.vehicle_ID
             JOIN 
-                user u ON o.offer_owner = u.user_ID
+                active_user u ON o.offer_owner = u.user_ID
             WHERE 
                 o.sent_to = %s
             ORDER BY 
@@ -1386,9 +1386,9 @@ async def get_user_transactions(user_id: int):
                 v.manufacturer, v.model, v.year
             FROM transactions t
             LEFT JOIN ads a ON t.belonged_ad = a.ad_ID
-            LEFT JOIN user pb ON t.paid_by = pb.user_ID
-            LEFT JOIN user ab ON t.approved_by = ab.user_ID
-            LEFT JOIN user os ON a.owner = os.user_ID
+            LEFT JOIN active_user pb ON t.paid_by = pb.user_ID
+            LEFT JOIN active_user ab ON t.approved_by = ab.user_ID
+            LEFT JOIN active_user os ON a.owner = os.user_ID
             LEFT JOIN vehicles v ON a.associated_vehicle = v.vehicle_ID
             WHERE t.paid_by = %s OR a.owner = %s
         """, (user_id, user_id))
@@ -2132,7 +2132,7 @@ def get_pending_ads():
             JOIN vehicles v ON a.associated_vehicle = v.vehicle_ID
             
             -- Join with owner information
-            JOIN user u ON a.owner = u.user_ID
+            JOIN active_user u ON a.owner = u.user_ID
             
             -- Left joins with vehicle type tables
             LEFT JOIN car c ON v.vehicle_ID = c.vehicle_ID

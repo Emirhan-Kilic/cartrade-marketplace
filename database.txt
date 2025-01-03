@@ -13,6 +13,11 @@ CREATE TABLE user (
                       active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
+CREATE VIEW active_user AS
+SELECT *
+FROM user
+WHERE active = TRUE;
+
 CREATE TABLE vehicles (
                           vehicle_ID INT PRIMARY KEY AUTO_INCREMENT,
                           manufacturer VARCHAR(50) NOT NULL,
