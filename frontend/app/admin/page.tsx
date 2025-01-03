@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar"; // Adjust path if needed
 import PendingAdsSection from "./PendingAdsSection"; // Adjust path if needed
 
@@ -27,6 +28,7 @@ interface ReportData {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"users" | "pending" | "reports">(
     "users"
   );
@@ -41,6 +43,14 @@ export default function AdminPage() {
 
   const [reports, setReports] = useState<ReportData[]>([]);
   const [selectedReport, setSelectedReport] = useState<ReportData | null>(null);
+
+  useEffect(() => {
+    const userEmail = sessionStorage.getItem("userEmail");
+    if (userEmail !== "admin@example.com") {
+      alert("Incorrect admin credentials!");
+      router.push("/login");
+    }
+  }, []);
 
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`)
