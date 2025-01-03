@@ -616,40 +616,45 @@ class AdCreate(BaseModel):
     is_premium: Optional[bool] = False
     associated_vehicle: int
     owner: int
+    status: str = "Pending"
 
 
 @app.post("/add_ad/")
 async def add_ad(ad: AdCreate):
+    print(f"Received ad status: {ad.status}") 
+    # Validate the status field to ensure it matches the ENUM values in the database
+    valid_statuses = ['Pending', 'Active', 'Inactive', 'Expired', 'Sold', 'Rejected']
+    if ad.status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status: {ad.status}. Allowed values are: {', '.join(valid_statuses)}"
+        )
+
+    # Set a default status if not provided
+    if not ad.status:
+        ad.status = "Pending"
+
     connection = get_db_connection()
     cursor = connection.cursor()
 
     try:
-        # Debug print to confirm the received data
-        print(f"Attempting to insert ad with vehicle ID={ad.associated_vehicle} and owner ID={ad.owner}")
-
         # Calculate expiry date based on premium status
         current_date = datetime.now()
-        if ad.is_premium:
-            expiry_date = current_date + timedelta(weeks=52)  # 12 months
-        else:
-            expiry_date = current_date + timedelta(weeks=12)  # 3 months
+        expiry_date = (
+            current_date + timedelta(weeks=52) if ad.is_premium else current_date + timedelta(weeks=12)
+        )
 
-        # Insert the ad record
+        # Insert the ad record into the database
         cursor.execute(
             """
-            INSERT INTO ads (expiry_date, is_premium, associated_vehicle, owner)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO ads (expiry_date, is_premium, associated_vehicle, owner, status)
+            VALUES (%s, %s, %s, %s, %s)
             """,
-            (
-                expiry_date,
-                ad.is_premium,
-                ad.associated_vehicle,
-                ad.owner
-            )
+            (expiry_date, ad.is_premium, ad.associated_vehicle, ad.owner, ad.status)
         )
         connection.commit()
 
-        # Fetch the ad ID of the newly inserted ad
+        # Fetch the newly created ad ID
         cursor.execute("SELECT LAST_INSERT_ID()")
         ad_id = cursor.fetchone()[0]
 
@@ -658,6 +663,7 @@ async def add_ad(ad: AdCreate):
     except mysql.connector.Error as err:
         connection.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {err}")
+
     finally:
         cursor.close()
         connection.close()

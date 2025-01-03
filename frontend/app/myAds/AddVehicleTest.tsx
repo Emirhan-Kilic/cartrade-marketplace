@@ -57,7 +57,7 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
 
   const handleAddVehicle = async (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
-  
+
     const vehiclePayload = {
       manufacturer: newVehicle.manufacturer,
       model: newVehicle.model,
@@ -69,7 +69,7 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
       state: newVehicle.state,
       description: newVehicle.description,
     };
-  
+
     let specificPayload: any = null;
     if (newVehicle.vehicleType === "car") {
       specificPayload = {
@@ -88,41 +88,71 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
         has_towing_package: newVehicle.hasTowingPackage,
       };
     }
-  
-    const finalPayload = { vehicle: vehiclePayload, ...specificPayload && { [newVehicle.vehicleType]: specificPayload } };
-  
+
+    const finalPayload: any = { vehicle: vehiclePayload };
+    if (specificPayload) {
+      finalPayload[newVehicle.vehicleType] = specificPayload;
+    }
+
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/add_vehicle/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(finalPayload),
-      });
-  
-      if (!response.ok) throw new Error("Failed to add vehicle");
-  
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/add_vehicle/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(finalPayload),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to add vehicle");
+      }
+
       const vehicleResponseData = await response.json();
-      if (!vehicleResponseData.vehicle_id) throw new Error("Vehicle ID missing in response");
-  
+      console.log("Vehicle added successfully:", vehicleResponseData);
+
       setVehicleData(vehicleResponseData);
       onSubmit(vehicleResponseData);
-  
+
       const adPayload = {
         associated_vehicle: vehicleResponseData.vehicle_id,
         owner: userId,
         is_premium: false,
         status: "Pending",
       };
-  
-      const adResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/add_ad/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(adPayload),
-      });
-  
-      if (!adResponse.ok) throw new Error("Failed to create ad");
-  
+
+      const adResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/add_ad/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(adPayload),
+        }
+      );
+
+      if (!adResponse.ok) {
+        const errorData = await adResponse.json();
+        console.error("Ad creation error:", errorData);
+        throw new Error("Failed to create ad");
+      }
+
       const adData = await adResponse.json();
-      setVehicleData((prevData) => prevData ? { ...prevData, ad_id: adData.ad_id } : null);
+      console.log("Ad created successfully:", adData);
+
+      setVehicleData((prevData: VehicleData | null) => {
+        if (prevData) {
+          return {
+            ...prevData,
+            ad_id: adData.ad_id,
+          };
+        }
+        return prevData;
+      });
+
       setShowModal(true);
     } catch (error) {
       console.error("Error in vehicle/ad creation:", error);
@@ -130,7 +160,7 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({
       setShowModal(false);
     }
   };
-  
+
   const handleVehicleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newType = e.target.value as "car" | "motorcycle" | "truck";
     setNewVehicle({ ...newVehicle, vehicleType: newType });

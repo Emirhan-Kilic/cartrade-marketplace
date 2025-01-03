@@ -81,7 +81,11 @@ const VehicleOffersModal: React.FC<VehicleOffersModalProps> = ({
 
             closeModal(); // Close modal after counter offer submission
         } catch (error) {
-            alert('Error updating counter offer: ' + error.message);
+            if (error instanceof Error) {
+                alert('Error updating counter offer: ' + error.message);
+            } else {
+                alert('Error updating counter offer');
+            }
         } finally {
             setLoading({...loading, [offerId]: false});
         }
